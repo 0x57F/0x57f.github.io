@@ -1,5 +1,4 @@
-"use strict";
-
+define("ace/snippets/vala",["require","exports","module"], function(require, exports, module){"use strict";
 exports.snippets = [
     {
         "content": "case ${1:condition}:\n\t$0\n\tbreak;\n",
@@ -189,3 +188,12 @@ exports.snippets = [
     }
 ];
 exports.scope = "";
+
+});                (function() {
+                    window.require(["ace/snippets/vala"], function(m) {
+                        if (typeof module == "object" && typeof exports == "object" && module) {
+                            module.exports = m;
+                        }
+                    });
+                })();
+            
