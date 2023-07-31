@@ -74,8 +74,10 @@ class VirtualMachine {
     let lexemed_program;
     // split the inputted program into chunks based on words.
     lexemed_program = program_string.split("\n");
+
     lexemed_program.forEach(
       (elem, index, array) => {
+        elem = this.preprocess(elem);
         array[index] = elem.split(" ");
         array[index].push("\n");
       }
@@ -98,34 +100,82 @@ class VirtualMachine {
 
         let token = new Token(TOKENS.OPERATION, lexeme);
 
-        if (KEYWORDS.find(value => value == lexeme)) {
-          token.type = TOKENS.OPERATION;
-        }
-        else if (REGISTERS.find(value => value == lexeme)) {
-          token.type = TOKENS.REGISTER;
-        }
-        else if (lexeme == "\n") {
-          token.type = TOKENS.NEW_INSTRUCTION;
-        }
-        else if (isNaN(lexeme)) {
-          token.type = TOKENS.LABEL;
-        }
-        else {
-          token.type = TOKENS.LITERAL;
-          token.value = Number(lexeme);
+        switch (lexeme) {
+          case (KEYWORDS.find(value => value == lexeme)):
+            token.type = TOKENS.OPERATION;
+            break;
+
+          case (REGISTERS.find(value => value == lexeme)):
+            token.type = TOKENS.REGISTER;
+            break;
+
+          case "\n":
+            token.type = TOKENS.NEW_INSTRUCTION;
+            break;
+
+          case !isNaN(lexeme) || lexeme:
+            token.type = TOKENS.LABEL;
+            break;
+
+          default:
+            token.type = TOKENS.LITERAL;
+            token.value = Number(lexeme);
         }
         tokens.push(token);
       }
     }
-
-    console.log(lexemed_program);
     console.log(tokens);
 
     // ===================================================================================
     //                           Syntax analysis stage 
     // ===================================================================================
-    
+
+  }
+
+  preprocess(text) {
+    // TODO: clear trailing + leading spaces, clear lines with only a space
+    text = text.replaceAll('\t', ' ');
+    let output = "";
+    for (let i in text) {
+      if (i != 0)
+        output = output.concat((text[i-1] == ' ' && text[i] == ' ') ? "" : text[i]);
+      else
+        output = output.concat(text[i]);
+    }
+    return output;
   }
 }
+code = "" +
+"INP\n" +
+"STA x\n" +
+"INP\n" +
+"STA y\n" +
+"INP\n" +
+"STA   lmt\n" +
+"LDA x\n" +
+"OUT\n" +
+"LDA y\n" +
+"OUT\n" +
+"loop    LDA lmt\n" +
+"BRZ end\n" +
+"SUB one\n" +
+"STA lmt\n" +
+"LDA x\n" +
+"ADD y\n" +
+"STA z\n" +
+"OUT\n" +
+"LDA y\n" +
+"STA x\n" +
+"LDA z\n" +
+"STA y\n" +
+"BRA loop\n" +
+"end   LDA z\n" +
+"SUB z\n" +
+"HLT\n" +
+"x    DAT\n" +
+"y    DAT\n" +
+"z    DAT\n" +
+"lmt   DAT\n" +
+"one   DAT 1\n"
 
-VM = new VirtualMachine("LDA ONE\nSTA TWO\nHLT\nONE DAT 1\nTWO DAT -12");
+VM = new VirtualMachine(code);
