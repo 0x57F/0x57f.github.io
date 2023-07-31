@@ -12,7 +12,7 @@ const OPERANDS = {
 }
 
 const TOKENS = {
-  LABEL: "LABBEL",
+  LABEL: "LABEL",
   OPERATION: "OPERATION",
   REGISTER: "REGISTER",
   LITERAL: "LITERAL",
@@ -67,48 +67,65 @@ class VirtualMachine {
    * @param {string} program_string 
    */
   assemble(program_string) {
-    // Lexical analysis stage
+    // ===================================================================================
+    //                            Lexical analysis stage
+    // ===================================================================================
 
     let lexemed_program;
     // split the inputted program into chunks based on words.
     lexemed_program = program_string.split("\n");
     lexemed_program.forEach(
-      (elem, index, array) =>
-        array[index] = elem.split(" ")
+      (elem, index, array) => {
+        array[index] = elem.split(" ");
+        array[index].push("\n");
+      }
     );
 
     lexemed_program.forEach((elem, index) => {
-      if (elem.length > 3) {
-        throw new Error(`Error on line ${index}: ${elem}\n More than three elements`);
+      if (elem.length > 4) {
+        throw new Error(`Error on line ${index}: ${elem}\n More than three elements (four with newline)`);
       }
 
     })
 
     let tokens = new Array();
 
-    for (let line in lexemed_program) {
+    for (let line_index in lexemed_program) {
+      let line = lexemed_program[line_index];
       // if it isn't a keyword, and it doesn't start with a number or a - sign, it is a label
-      for (let lexeme in line) {
-        let token_type;
-        if (lexeme in KEYWORDS) {
-          token_type = TOKENS.OPERATION;
-        }
-        else if (lexeme in REGISTERS) {
-          token_type = TOKENS.REGISTER;
-        }
-        else if (NaN(lexeme)) {
-          token_type = TOKENS.LABEL;
+      for (let lexeme_index in line) {
+        let lexeme = line[lexeme_index]
 
+        let token = new Token(TOKENS.OPERATION, lexeme);
+
+        if (KEYWORDS.find(value => value == lexeme)) {
+          token.type = TOKENS.OPERATION;
+        }
+        else if (REGISTERS.find(value => value == lexeme)) {
+          token.type = TOKENS.REGISTER;
+        }
+        else if (lexeme == "\n") {
+          token.type = TOKENS.NEW_INSTRUCTION;
+        }
+        else if (isNaN(lexeme)) {
+          token.type = TOKENS.LABEL;
         }
         else {
-          token_type = TOKENS.NEW_INSTRUCTION;
+          token.type = TOKENS.LITERAL;
+          token.value = Number(lexeme);
         }
-        tokens.push(new Token(token_type, lexeme));
+        tokens.push(token);
       }
     }
 
     console.log(lexemed_program);
+    console.log(tokens);
+
+    // ===================================================================================
+    //                           Syntax analysis stage 
+    // ===================================================================================
+    
   }
 }
 
-VM = new VirtualMachine("there yay\nsplit time bois\naaa bbb ccc");
+VM = new VirtualMachine("LDA ONE\nSTA TWO\nHLT\nONE DAT 1\nTWO DAT -12");

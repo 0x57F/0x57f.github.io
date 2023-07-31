@@ -1,29 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<title>ACE in Action</title>
-<style type="text/css" media="screen">
-    #editor { 
-        position: absolute;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        left: 0;
-    }
-</style>
+    <title>Compilers and Little Man Computing</title>
+    <style type="text/css" media="screen">
+        #editor {
+            position: absolute;
+            top: 0.5vw;
+            left: 0.5vw;
+
+
+            height: 90%;
+            width: 85%;
+
+            border: 1px solid black;
+        }
+
+        #compile_button {
+            position: absolute;
+            bottom: 0.5vw;
+            left: 0.5vw;
+
+            height: 5%;
+            width: 10%;
+            font-size: 2vh;
+        }
+
+        #settings_button {
+            position: absolute;
+            top: 0.5vw;
+            right: 0.5vw;
+
+            height: 5%;
+            width: 13%;
+            font-size: 2vh;
+        }
+    </style>
 </head>
+
 <body>
 
-<div id="editor">function foo(items) {
-    var x = "All this is syntax highlighted";
-    return x;
-}</div>
-    
-<script src="src/ace.js" type="text/javascript" charset="utf-8"></script>
-<script>
-    var editor = ace.edit("editor");
-    editor.setTheme("ace/theme/monokai");
-    editor.session.setMode("ace/mode/javascript");
-</script>
+    <div id="editor"># Enter Your Code Here!
+e.g.
+for i = 0 to 7
+    print(i)
+next i
+# 0 1 2 3 4 5 6 7</div>
+    <script src="lib/ace/ace.js" type="text/javascript" charset="utf-8"></script>
+    <script>
+        var editor = ace.edit("editor");
+        editor.session.setMode("ace/mode/python");
+    </script>
+
+    <script src="lmc_virtual_machine.js" type="text/javascript"></script>
+
+    <button id="compile_button">Compile</button>
+    <button id="settings_button">Settings</button>
 </body>
+
 </html>
