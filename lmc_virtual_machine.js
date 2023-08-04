@@ -1,14 +1,30 @@
-const OPERANDS = {
+// first digit is opcode, next 3 are operands
+
+const OPCODES_TO_NUMERIC = {
   ADD: 1,
   SUB: 2,
   STA: 3,
-  UNUSED: 4,
+  POP: 4, //MODIFIED
+  PSH: 4, //MODIFIED
+  PSHPC: 4,
   LDA: 5,
   BRA: 6,
   BRZ: 7,
   BRP: 8,
-  IO: 9,
-  HLT: 0
+  INP: 9,
+  OUT: 9,
+  OUTC: 9,
+  HLT: 0,
+  DAT: -1,
+}
+
+const OPCODES_TO_EXTRA_NUMERIC = {
+  POP: 1,
+  PSH: 2,
+  PSHPC: 3,
+  INP: 1,
+  OUT: 2,
+  OUTC: 3
 }
 
 const TOKENS = {
@@ -19,9 +35,8 @@ const TOKENS = {
   NEW_INSTRUCTION: "NEW INSTRUCTION"
 }
 
-const KEYWORDS = [
-  "ADD", "SUB", "STA", "LDA", "BRA", "BRZ", "BRP", "INP", "OUT", "HLT", "DAT"
-]
+const KEYWORDS = Object.keys(OPCODES_TO_NUMERIC);
+
 const REGISTERS = [
   "ACC", "PC"
 ]
@@ -38,8 +53,6 @@ class Token {
         this.value = Number(value);
         break;
 
-      case TOKENS.OPERATION:
-
       default:
         this.value = value;
         break;
@@ -51,14 +64,42 @@ class Token {
   }
 }
 
-class VirtualMachine {
-  ram = new Array(1024);
-  stack = new Array(1024);
-  stack_pointer = 0;
-  accumulator = 0;
-  pc = 0;
+class Instruction {
+  label = undefined;
+  opcode = undefined;
+  operand = undefined;
+  
+  constructor(opcode, operand = 0, label = undefined) {
+    this.label = label;
+    this.opcode = opcode;
+    this.operand = operand;
+  }
 
+  to_numeric() {
+    switch (this.opcode) {
+      case OPCODES_TO_NUMERIC.DAT:
+        return this.operand;
+      default:
+        return this.opcode * 1000 + this.operand;
+    }
+  }
+
+  static from_numeric(number) {
+    let operand = number % 1000;
+    let opcode = (number - operand) / 1000;
+    return new Instruction(opcode, operand);
+  }
+}
+
+class VirtualMachine {
   constructor(program_string) {
+    this.ram = [];
+    this.stack = [];
+    this.input_stack = [];
+    this.stack_pointer = 0;
+    this.accumulator = 0;
+    this.pc = 0;
+
     this.assemble(program_string);
   }
 
@@ -87,7 +128,6 @@ class VirtualMachine {
       if (elem.length > 4) {
         throw new Error(`Error on line ${index}: ${elem}\n More than three elements (four with newline)`);
       }
-
     })
 
     let tokens = new Array();
@@ -98,16 +138,16 @@ class VirtualMachine {
       for (let lexeme_index in line) {
         let lexeme = line[lexeme_index]
 
-        let token = new Token(TOKENS.OPERATION, lexeme);
+        let token = new Token(undefined, lexeme);
 
         switch (lexeme) {
           case (KEYWORDS.find(value => value == lexeme)):
             token.type = TOKENS.OPERATION;
             break;
 
-          case (REGISTERS.find(value => value == lexeme)):
-            token.type = TOKENS.REGISTER;
-            break;
+//          case (REGISTERS.find(value => value == lexeme)):
+//            token.type = TOKENS.REGISTER;
+//            break;
 
           case "\n":
             token.type = TOKENS.NEW_INSTRUCTION;
@@ -124,12 +164,69 @@ class VirtualMachine {
         tokens.push(token);
       }
     }
-    console.log(tokens);
 
     // ===================================================================================
     //                           Syntax analysis stage 
     // ===================================================================================
 
+    // list of instructions
+    let instructions = [];
+    // individual instruction (temp for collation)
+    let instruction = new Instruction();
+
+    for (let token_index in tokens) {
+      let token = tokens[token_index];
+      if (token.type == TOKENS.NEW_INSTRUCTION) {
+
+        // filter out empty lines
+        if (instruction.label != undefined || instruction.opcode != undefined || instruction.operand != 0) {
+          instructions.push(instruction);
+          instruction = new Instruction();
+        }
+      }
+
+      // Some logic dictating what the typ must be, based on what is in the instrction already.
+      if ((token.type == TOKENS.OPERATION) && (instruction.opcode == undefined)) {
+        instruction.opcode = OPCODES_TO_NUMERIC[token.value];
+        if (OPCODES_TO_EXTRA_NUMERIC.hasOwnProperty(token.value))
+          instruction.operand = OPCODES_TO_EXTRA_NUMERIC[token.value];
+      }
+      else if ((token.type == TOKENS.LABEL) && (instruction.opcode == undefined)) {
+        instruction.label = token.value;
+      }
+      else if ((token.type == TOKENS.LABEL || token.type == TOKENS.LITERAL) && instruction.opcode != undefined) {
+        instruction.operand = token.value;
+      }
+    }
+
+    // first pass to collect labels
+    let symbol_table = {};
+
+    for (let instruction_index in instructions) {
+      let instruction = instructions[instruction_index];
+      if (instruction.label == undefined) continue;
+      else if (symbol_table.hasOwnProperty(instruction.label)) {
+        throw new Error(`Multiple defenitions of label ${instruction.label}, latest at ${instruction_index}`)
+      }
+      else {
+        symbol_table[instruction.label] = instruction_index;
+      }
+    }
+
+    // ===================================================================================
+    //                           ASSEMBLY STAGE
+    // ===================================================================================
+
+    // expand on the labels, and conver everything to it's numeric value
+    for (let instruction_index in instructions) {
+      let instruction = instructions[instruction_index];
+
+      if (symbol_table.hasOwnProperty(instruction.operand)) {
+        instruction.operand = Number(symbol_table[instruction.operand]);
+      }
+      
+      this.ram[instruction_index] = instruction.to_numeric();
+    }
   }
 
   preprocess(text) {
@@ -144,38 +241,112 @@ class VirtualMachine {
     }
     return output;
   }
+
+  step() {
+    let instruction = Instruction.from_numeric(this.ram[this.pc]);
+    this.pc += 1;
+
+    let done = false;
+    switch (instruction.opcode) {
+      case OPCODES_TO_NUMERIC.ADD:
+        this.accumulator += this.ram[instruction.operand];
+        break;
+
+      case OPCODES_TO_NUMERIC.SUB:
+        this.accumulator -= this.ram[instruction.operand];
+        break;
+
+      case OPCODES_TO_NUMERIC.STA:
+        this.ram[instruction.operand] = this.accumulator;
+        break;
+
+      case OPCODES_TO_NUMERIC.LDA:
+        this.accumulator = this.ram[instruction.operand];
+        break;
+
+      case OPCODES_TO_NUMERIC.BRA:
+        this.pc = instruction.operand;
+        break;
+
+      case OPCODES_TO_NUMERIC.BRZ:
+        if (this.accumulator == 0)
+          this.pc = instruction.operand;
+        break;
+
+      case OPCODES_TO_NUMERIC.BRP:
+        if (this.accumulator > 0)
+          this.pc = instruction.operand;
+        break;
+
+      case OPCODES_TO_NUMERIC.HLT:
+        done = true;
+        break;
+
+      case OPCODES_TO_NUMERIC.INP:
+      case OPCODES_TO_NUMERIC.OUT:
+      case OPCODES_TO_NUMERIC.OUTC:
+        switch (instruction.operand) {
+          case OPCODES_TO_EXTRA_NUMERIC.INP:
+            console.warn("Input not fully implemented, using a predetermined stack");
+            this.accumulator = this.input_stack.pop();
+            break;
+
+          case OPCODES_TO_EXTRA_NUMERIC.OUT:
+            console.log(this.accumulator);
+            break;
+
+          case OPCODES_TO_EXTRA_NUMERIC.OUTC:
+            console.log(String.fromCharCode(this.accumulator));
+            break;
+
+        }
+        break;
+
+      case OPCODES_TO_NUMERIC.POP:
+      case OPCODES_TO_NUMERIC.PSH:
+      case OPCODES_TO_NUMERIC.PSHPC:
+        switch (instruction.operand) {
+          case OPCODES_TO_EXTRA_NUMERIC.POP:
+            this.accumulator = this.stack.pop();
+            break;
+
+          case OPCODES_TO_EXTRA_NUMERIC.PSH:
+            this.stack.push(this.accumulator);
+            break;
+
+          case OPCODES_TO_EXTRA_NUMERIC.PSHPC:
+            this.stack.push(this.pc);
+            break;
+        }
+        break;
+
+      default:
+        throw new Error(`How on earth did you get here?`);
+    }
+    return done;
+  }
+
+  run() {
+    this.pc = 0;
+    let done = false;
+    while (!done) {
+      done = this.step();
+    }
+  }
 }
 code = "" +
-"INP\n" +
-"STA x\n" +
-"INP\n" +
-"STA y\n" +
-"INP\n" +
-"STA   lmt\n" +
-"LDA x\n" +
+"LDA ONE\n" + 
+"ADD TWO\n" +
 "OUT\n" +
-"LDA y\n" +
+"PSHPC\n" + 
+"LDA TWO\n" +
+"POP\n" + 
 "OUT\n" +
-"loop    LDA lmt\n" +
-"BRZ end\n" +
-"SUB one\n" +
-"STA lmt\n" +
-"LDA x\n" +
-"ADD y\n" +
-"STA z\n" +
-"OUT\n" +
-"LDA y\n" +
-"STA x\n" +
-"LDA z\n" +
-"STA y\n" +
-"BRA loop\n" +
-"end   LDA z\n" +
-"SUB z\n" +
 "HLT\n" +
-"x    DAT\n" +
-"y    DAT\n" +
-"z    DAT\n" +
-"lmt   DAT\n" +
-"one   DAT 1\n"
+"ONE DAT 1\n" +
+"TWO DAT 2\n"
+
 
 VM = new VirtualMachine(code);
+VM.input_stack = [10, 2];
+VM.run();
