@@ -39,7 +39,17 @@ const TOKENS = {
 
 const KEYWORDS = Object.keys(OPCODES_TO_NUMERIC);
 
+/**
+ * A class representing a token. Has a type and a value
+ */
 class Token {
+
+    /**
+     * Construct a token with type type and value value
+     *
+     * @param {String} type - a token from TOKENS
+     * @param {String} value - a value for the token to have
+     */
     constructor(type, value) {
         this.type = type;
 
@@ -54,11 +64,20 @@ class Token {
         }
     }
 
+    /**
+     * conver the token to a string
+     * TODO: Potentially unused
+
+     * @returns {String} String representing the token
+     */
     toString() {
         return `[(${this.type}),${this.value}]`
     }
 }
 
+/**
+ * A class representing a LMC instruction
+ */
 class Instruction {
     constructor(opcode, operand = 0, label = undefined) {
         this.label = label;
@@ -66,6 +85,11 @@ class Instruction {
         this.operand = operand;
     }
 
+    /**
+     * Convert an instruction to it's numeric format
+     *
+     * @returns {Number} the numeric value of the instruction
+     */
     to_numeric() {
         switch (this.opcode) {
             case OPCODES_TO_NUMERIC.DAT:
@@ -75,6 +99,13 @@ class Instruction {
         }
     }
 
+    /**
+     * Make an instruction from an integer, like one found in the memory of a virtual machine
+     *
+     * @static
+     * @param {Number} number - The value to generate the instruction from
+     * @returns {Instruction} The instruction generated from number
+     */
     static from_numeric(number) {
         let operand = number % 1000;
         let opcode = (number - operand) / 1000;
@@ -82,7 +113,15 @@ class Instruction {
     }
 }
 
+/**
+ * A class to represent a Virtual Machine running a modified Little Man Computer architecture
+ */
 class VirtualMachine {
+    /**
+     * initialise and setup the vitual machine based on the ggiven code input
+     *
+     * @param {String} program_string - The program to compile
+     */
     constructor(program_string) {
         this.ram = [];
         this.stack = [];
@@ -99,9 +138,11 @@ class VirtualMachine {
     // TODO: make symbol table more prevalent
 
     /**
-     * 
-     * @param {String} program_string the string that the program will be made up of. one program per line
-     * @returns {Array[Token]} A list of tokens with a type and value assigned to them.
+     * Split the string into tokens
+     *
+     * @param {String} program_string - The program in string form
+     * @throws {Error} - A line that is too long
+     * @returns {Array<Token>} An array of tokens representing the program
      */
     lexical_analysis(program_string) {
         let lexemed_program;
@@ -157,9 +198,11 @@ class VirtualMachine {
     }
 
     /**
-     * 
-     * @param {Array[Token]} tokens An arrray of tokens dictating the structure of the program.
-     * @returns A list of instructions, with labels setup, and a symbol table
+     * Generates a list of instructionf from the given tokens.
+     *
+     * @param {Array<Token>} tokens - A list of tokens representing the programm
+     * @throws {Error} - Multiple defenitions of a label throws an error
+     * @returns {Array<Instruction>, Object} An array of generated instructions, and a symbol table
      */
     syntax_analysis(tokens) {
         // list of instructions
@@ -211,7 +254,16 @@ class VirtualMachine {
         return [instructions, symbol_table];
     }
 
+    /**
+     * Assembles the given instructions and symbol table into ram.
+     *
+     * @param {Array<Instruction>} instructions - An array of instructions with labels left as strings
+     * @param {Object} symbol_table - Contains the keys and locations of all labels
+     * @throws {Error} - If a label has not been found, panic
+     */
     assemble(instructions, symbol_table) {
+        // TODO: make into more functions for readability?
+
         // expand on the labels, and conver everything to it's numeric value
         for (let instruction_index in instructions) {
             let instruction = instructions[instruction_index];
@@ -227,8 +279,15 @@ class VirtualMachine {
         }
     }
 
+    /**
+     * Preprocess a single line of text, removing repeated characters and replacing tabs with spaces
+     *
+     * @param {String} text - The input line of text to be parsed
+     * @returns {String} the processed string
+     */
     preprocess(text) {
-        // TODO: clear trailing + leading spaces, clear lines with only a space
+        // NOTTODO: clear trailing + leading spaces, clear lines with only a space
+        // TODO: make responsibilty more clear
         text = text.replaceAll('\t', ' ');
         let output = "";
         for (let i in text) {
@@ -240,6 +299,12 @@ class VirtualMachine {
         return output;
     }
 
+    /**
+     * Step the virtual machine a single clock cycle, returning wether the program is done or not
+     *
+     * @throws {Error} - Unhandled Instruction, used in case something goes very wrong indeed
+     * @returns {Boolean} A boodlean stating wether the program is still running
+     */
     step() {
         let instruction = Instruction.from_numeric(this.ram[this.pc]);
         this.pc += 1;
@@ -334,6 +399,10 @@ class VirtualMachine {
         return done;
     }
 
+    /**
+     * Run the program in ram by repeatedly calling the step function until the program is done
+     *
+     */
     run() {
         this.pc = 0;
         let done = false;

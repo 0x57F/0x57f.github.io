@@ -322,6 +322,7 @@ export class Tokenizer {
      * Processes lexical rules with begin marker.
      */
     _processSpec(spec) {
+        console.log(spec);
         if (spec.options) {
             this.setOptions(spec.options);
         }
