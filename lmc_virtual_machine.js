@@ -7,6 +7,7 @@ const OPCODES_TO_NUMERIC = {
     POP: 4, //MODIFIED
     PSH: 4, //MODIFIED
     LDAPC: 4, //MODIFIED
+    LDACC: 4,
     LDA: 5,
     BRA: 6,
     BRZ: 7,
@@ -23,6 +24,7 @@ const OPCODES_TO_EXTRA_NUMERIC = {
     POP: 1,
     PSH: 2,
     LDAPC: 3,
+    LDACC: 4,
     INP: 1,
     OUT: 2,
     OUTC: 3,
@@ -376,6 +378,7 @@ class VirtualMachine {
             case OPCODES_TO_NUMERIC.POP:
             case OPCODES_TO_NUMERIC.PSH:
             case OPCODES_TO_NUMERIC.LDAPC:
+            case OPCODES_TO_NUMERIC.LDACC:
                 switch (instruction.operand) {
                     case OPCODES_TO_EXTRA_NUMERIC.POP:
                         this.accumulator = this.stack.pop();
@@ -388,6 +391,9 @@ class VirtualMachine {
                     case OPCODES_TO_EXTRA_NUMERIC.LDAPC:
                         this.accumulator = this.pc;
                         break;
+
+                    case OPCODES_TO_EXTRA_NUMERIC.LDACC:
+                        this.accumulator = this.ram[this.accumulator];
                 }
                 break;
 
@@ -412,54 +418,33 @@ class VirtualMachine {
         }
     }
 }
-
 let code = "" +
-    "LDA f_A\n" +
-    "PSH\n" +
-    "LDA f_B\n" +
-    "PSH\n" +
-    "\n" +
-    "LDA f_A\n" +
-    "PSH\n" +
-    "LDA f_B\n" +
-    "PSH\n" +
-    "LDAPC\n" +
-    "ADD f_other_func_offset\n" +
-    "PSH\n" +
-    "BRA other_func\n" +
-    "\n" +
-    "POP\n" +
-    "STA f_ret\n" +
-    "POP \n" +
-    "STA f_A\n" +
-    "POP\n" +
-    "STA f_B\n" +
-    "LDA f_ret\n" +
-    "OUT\n" +
-    "HLT\n" +
-    "\n" +
-    "\n" +
-    "f_A DAT 5\n" +
-    "f_B DAT 6\n" +
-    "f_other_func_offset DAT 3\n" +
-    "f_other_func_ret DAT\n" +
-    "f_ret DAT\n" +
-    "\n" +
-    "other_func POP\n" +
-    "STA other_func_ret_loc\n" +
-    "POP\n" +
-    "STA other_func_A\n" +
-    "POP\n" +
-    "STA other_func_B\n" +
-    "ADD other_func_A\n" +
-    "PSH\n" +
-    "LDA other_func_ret_loc\n" +
-    "RET\n" +
-    "\n" +
-    "other_func_A DAT\n" +
-    "other_func_B DAT\n" +
-    "other_func_ret_loc DAT\n" +
-    "other_func_ret_val DAT\n"
+"LDA string_0\n" +
+"STA identifier_global_a\n" +
+"LDA identifier_global_a\n" +
+"start ADD literal_1\n" +
+"STA loc\n" +
+"LDACC\n" +
+"BRZ end\n" +
+"OUTC\n" +
+"LDA loc\n" +
+"BRA start\n" +
+"end HLT\n" +
+"literal_1 DAT 1\n" +
+"identifier_global_a DAT 0\n" +
+"string_0 DAT 13\n" +
+"string_0_0 DAT 79\n" +
+"string_0_1 DAT 118\n" +
+"string_0_2 DAT 101\n" +
+"string_0_3 DAT 114\n" +
+"string_0_4 DAT 32\n" +
+"string_0_5 DAT 57\n" +
+"string_0_6 DAT 48\n" +
+"string_0_7 DAT 48\n" +
+"string_0_8 DAT 48\n" +
+"string_0_9 DAT 48\n" +
+"string_0_10 DAT 0\n" +
+"loc     DAT\n"
 
 let VM = new VirtualMachine(code);
 VM.input_stack = [10, 2];
