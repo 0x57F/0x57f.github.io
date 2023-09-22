@@ -275,6 +275,8 @@ class MyVisitor extends Visitor {
             this.symbol_table.add_symbol(literal_one_name, SYMBOL_TYPES.INTEGER_LITERAL, 1);
         }
 
+        // WARNING: MUTATES LITERALS STILL
+
         switch (ctx.children[1].symbol.type) {
             case Lexer.MUL:
                 assembly += 
@@ -391,9 +393,9 @@ class MyVisitor extends Visitor {
             this.symbol_table.add_symbol(literal_one_name, SYMBOL_TYPES.INTEGER_LITERAL, 1);
         }
 
-        let literal_zero_name = this.symbol_table.generate_label(1, SYMBOL_TYPES.INTEGER_LITERAL);
+        let literal_zero_name = this.symbol_table.generate_label(0, SYMBOL_TYPES.INTEGER_LITERAL);
         if (!this.symbol_table.already_exists(literal_zero_name)) {
-            this.symbol_table.add_symbol(literal_zero_name, SYMBOL_TYPES.INTEGER_LITERAL, 1);
+            this.symbol_table.add_symbol(literal_zero_name, SYMBOL_TYPES.INTEGER_LITERAL, 0);
         }
         // Create a place to store the copy of the left operand required to complete this calculation
         let left_operand_copy = `calc_temp_${this.temp_calc_id++}`;
@@ -427,8 +429,9 @@ class MyVisitor extends Visitor {
             // NOTE: This also decided not to work again due to a faulty algorithm, commiting to save it
             case Lexer.POW:
                 assembly +=
-                    `${outer_loop_label}_start LDA ${left_operand_temp}\n` +
+                    `LDA ${left_operand_temp}\n` +
                     `STA ${left_operand_copy}\n` +
+                    `${outer_loop_label}_start BRA ${inner_loop_label}_start\n` +
                     // Create a copy of the left label, needs to be done every loop
                     `${inner_loop_label}_start LDA ${total_label}\n` +
                     `ADD ${left_operand_temp}\n` +
@@ -443,6 +446,10 @@ class MyVisitor extends Visitor {
                     `STA ${right_operand_temp}\n` +
                     `SUB literal_1\n` +
                     `BRZ ${outer_loop_label}_end\n` +
+                    `LDA ${total_label}\n` +
+                    `STA ${left_operand_copy}\n` +
+                    `LDA literal_0\n` +
+                    `STA ${total_label}\n` +
                     `BRA ${outer_loop_label}_start\n` + 
                     `${outer_loop_label}_end LDA ${total_label}\n`;
 
