@@ -1,6 +1,6 @@
 const { antlr4, Lexer, Parser, Visitor } = self.parser.default;
 
-const input = "a = 4^3\n";
+const input = "a = 10 MOD 2\n";
 const chars = new antlr4.InputStream(input);
 const lexer = new Lexer(chars);
 const tokens = new antlr4.CommonTokenStream(lexer);
@@ -13,12 +13,14 @@ const SYMBOL_TYPES = {
     STRING_LITERAL: 2,
     FUNCTION_IDENTIFIER: 3,
     POINTER: 4,
+    TEMP_CALC: 5,
 }
 
 class SymbolTable {
     constructor() {
         this.table = {};
         this.scope_prefix = "global_"
+        this.temp_calc_id = 0;
     }
 
     add_symbol(name, type, starting_value) {
@@ -35,6 +37,13 @@ class SymbolTable {
                 if (!this.already_exists(name)) {
                     // Add it to the symbol table with the read default value
                     this.table[name] = new Symbol(name, SYMBOL_TYPES.STRING_LITERAL, starting_value);
+                }
+                break;
+
+            case SYMBOL_TYPES.TEMP_CALC:
+                if (!this.already_exists(name)) {
+                    // Add it to the symbol table with the read default value
+                    this.table[name] = new Symbol(name, SYMBOL_TYPES.TEMP_CALC, starting_value);
                 }
                 break;
 
@@ -63,6 +72,9 @@ class SymbolTable {
             case SYMBOL_TYPES.VARIABLE:
                 return `${this.scope_prefix}identifier_${name}`;
 
+            case SYMBOL_TYPES.TEMP_CALC:
+                return `temp_calc_${this.temp_calc_id++}`;
+
             default:
                 return `${this.scope_prefix}unknown_${name}`;
         }
@@ -74,13 +86,15 @@ class SymbolTable {
 
     generate_code(assembly) {
         for (let symbol in this.table) {
-            console.log(symbol);
             switch (this.table[symbol].type) {
+
                 case SYMBOL_TYPES.INTEGER_LITERAL:
+                case SYMBOL_TYPES.TEMP_CALC:
                 case SYMBOL_TYPES.VARIABLE:
                     console.log(`${symbol} DAT ${this.table[symbol].starting_value}\n`);
                     assembly += `${symbol} DAT ${this.table[symbol].starting_value}\n`;
                     break;
+
                 // If we get a string do some other stuff
                 case SYMBOL_TYPES.STRING_LITERAL:
                     // slap the pointer in there
@@ -94,11 +108,21 @@ class SymbolTable {
                     // insert Null character at the end of the string
                     assembly += `${symbol}_${++c} DAT 0\n`;
                     break;
+
                 case SYMBOL_TYPES.FUNCTION_IDENTIFIER:
                     alert("FUNCTION IDENTIFIER NOT IMPLEMENTED");
             }
         }
         return assembly;
+    }
+
+    generate_symbol(initial_value, type) {
+        let literal_name = this.generate_label(initial_value, type);
+        console.log("Generating", literal_name);
+        if (!this.already_exists(literal_name)) {
+            this.add_symbol(literal_name, type, initial_value);
+        }
+        return literal_name;
     }
 }
 
@@ -134,7 +158,6 @@ class MyVisitor extends Visitor {
             return this._visitChildren(ctx);
         }
 
-        this.temp_calc_id = 0;
         this.loop_id = 0;
         this.symbol_table = new SymbolTable();
     }
@@ -159,6 +182,7 @@ class MyVisitor extends Visitor {
     }
 
     visitTrue_id(ctx) {
+        // TODO: REVISIT
         if (!ctx) return this.visitChildren(ctx);
         console.log("visisting true_Id");
         console.log(ctx);
@@ -188,8 +212,6 @@ class MyVisitor extends Visitor {
     }
 
     visitLiteral(ctx) {
-        console.trace("LITERAL", ctx, ctx.children[0]?.symbol?.type);
-
         let children_read_value = this.visitChildren(ctx).toString();
         console.log(children_read_value);
         let literal_name;
@@ -197,23 +219,15 @@ class MyVisitor extends Visitor {
         // switch on the value of the only child
         switch (ctx.children[0].symbol.type) {
             case Lexer.INT:
-                console.log("Found a int");
-                literal_name = "literal_" + children_read_value;
-                if (!this.symbol_table.already_exists(literal_name)) {
-                    // Add it to the symbol table with the read default value
-                    this.symbol_table.add_symbol(literal_name, SYMBOL_TYPES.INTEGER_LITERAL, children_read_value);
-                }
+                literal_name = this.symbol_table.generate_symbol(children_read_value, SYMBOL_TYPES.INTEGER_LITERAL);
                 break;
 
             case Lexer.STRING:
-                console.log("Found a string");
-                literal_name = "string_" + (string_count++);
-                if (!this.symbol_table.already_exists(literal_name)) {
-                    // Add it to the symbol table with the read default value
-                    this.symbol_table.add_symbol(literal_name, SYMBOL_TYPES.STRING_LITERAL, children_read_value.slice(1, -1));
-                }
+                literal_name = this.symbol_table.generate_symbol(children_read_value.slice(1, -1), SYMBOL_TYPES.STRING_LITERAL);
                 break;
 
+
+            // NOTE: Potential Bug for when working with scopes and variables
             default:
                 // We got an identifier
                 literal_name = this.symbol_table.generate_label(children_read_value, SYMBOL_TYPES.VARIABLE);
@@ -223,18 +237,20 @@ class MyVisitor extends Visitor {
                 }
         }
 
-        console.log(literal_name);
         return literal_name;
     }
 
     visitCalc(ctx) {
-        console.log("CALC", ctx);
         if (ctx.children.length < 3) return ctx.children[0].accept(this);
+
+        // WARNING: DOES NOT FUNCTION CORRECTLY WITH NEGATIVES. TO FIX WOULD INVOLVE MAKING PRODUCED CODE EVEN LESS INTUITIVE
 
         // Left operand should aready be loaded into memory
         let left_operand = ctx.children[0].accept(this);
         // right operand should be a label
         let right_operand = ctx.children[2].accept(this);
+
+        let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
 
         assembly += `LDA ${left_operand}\n`
         switch (ctx.children[1].symbol.type) {
@@ -247,14 +263,13 @@ class MyVisitor extends Visitor {
                 break;
         }
 
-        assembly += `STA calc_temp_${this.temp_calc_id++}\n`
+        assembly += `STA ${total_label}\n`
 
-        return `calc_temp_${this.temp_calc_id}`;
+        return total_label;
     }
 
 
     visitMul(ctx) {
-        console.log("MUL", ctx);
         if (ctx.children.length < 3) return ctx.children[0].accept(this);
 
         // Left operand should aready be loaded into memory
@@ -262,46 +277,48 @@ class MyVisitor extends Visitor {
         // right operand should be a label
         let right_operand = ctx.children[2].accept(this);
 
-        let total_label = `calc_temp_${this.temp_calc_id++}`;
-        if (!this.symbol_table.already_exists(total_label)) {
-            this.symbol_table.add_symbol(total_label, SYMBOL_TYPES.INTEGER_LITERAL, 0);
-        }
+        let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+
         let loop_label = `loop_${this.loop_id++}`;
 
         // Add the literal one to the symbol table for ocunting purposes
-        let literal_one_name = this.symbol_table.generate_label(1, SYMBOL_TYPES.INTEGER_LITERAL);
-
-        if (!this.symbol_table.already_exists(literal_one_name)) {
-            this.symbol_table.add_symbol(literal_one_name, SYMBOL_TYPES.INTEGER_LITERAL, 1);
-        }
-
-        // WARNING: MUTATES LITERALS STILL
+        let literal_one_name = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
 
         switch (ctx.children[1].symbol.type) {
             case Lexer.MUL:
+                // copy the right operand to avoid mutation
+                let right_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
                 assembly += 
+                    `LDA ${right_operand}\n` + 
+                    `STA ${right_operand_temp}\n` +
+
                     `${loop_label}_start LDA ${total_label}\n` +
                     `ADD ${left_operand}\n` +
                     `STA ${total_label}\n` +
-                    `LDA ${right_operand}\n` +
-                    `SUB literal_1\n` +
-                    `STA ${right_operand}\n` +
+                    `LDA ${right_operand_temp}\n` +
+                    `SUB ${literal_one_name}\n` +
+                    `STA ${right_operand_temp}\n` +
                     `BRZ ${loop_label}_end\n` +
                     `BRA ${loop_label}_start\n` +
                     `${loop_label}_end LDA ${total_label}\n`;
                 break;
 
             case Lexer.DIV:
-                assembly += `${loop_label}_start LDA ${left_operand}\n` +
+                // TODO: optimise assembly
+                let left_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+                assembly += 
+                    `LDA ${left_operand}\n` + 
+                    `STA ${left_operand_temp}\n` +
+                    `${loop_label}_start LDA ${left_operand_temp}\n` +
                     `SUB ${right_operand}\n` +
-                    `STA ${left_operand}\n` +
+                    `STA ${left_operand_temp}\n` +
                     `LDA ${total_label}\n` +
-                    `ADD literal_1\n` +
+                    `ADD ${literal_one_name}\n` +
                     `STA ${total_label}\n` +
-                    `LDA ${left_operand}\n` +
+                    `LDA ${left_operand_temp}\n` +
                     `BRP ${loop_label}_start\n` +
                     `${loop_label}_end LDA ${total_label}\n` +
-                    `SUB literal_1\n` +
+                    `SUB ${literal_one_name}\n` +
                     `STA ${total_label}\n`;
                 break;
         }
@@ -310,7 +327,6 @@ class MyVisitor extends Visitor {
     }
 
     visitMod(ctx) {
-        console.log("MOD", ctx);
         if (ctx.children.length < 3) return ctx.children[0].accept(this);
 
         // Left operand should aready be loaded into memory
@@ -318,44 +334,43 @@ class MyVisitor extends Visitor {
         // right operand should be a label
         let right_operand = ctx.children[2].accept(this);
 
-        let total_label = `calc_temp_${this.temp_calc_id++}`;
-        if (!this.symbol_table.already_exists(total_label)) {
-            this.symbol_table.add_symbol(total_label, SYMBOL_TYPES.INTEGER_LITERAL, 0);
-        }
+        let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+
         let loop_label = `loop_${this.loop_id++}`;
 
-        // Add the literal one to the symbol table for ocunting purposes
-        let literal_one_name = this.symbol_table.generate_label(1, SYMBOL_TYPES.INTEGER_LITERAL);
+        // Copy the left operands to avoid mutation
+        let left_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+        assembly += `LDA ${left_operand}\n` + 
+                    `STA ${left_operand_temp}\n`;
 
-        if (!this.symbol_table.already_exists(literal_one_name)) {
-            this.symbol_table.add_symbol(literal_one_name, SYMBOL_TYPES.INTEGER_LITERAL, 1);
-        }
+        // Add the literal one to the symbol table for ocunting purposes
+        let literal_one_name = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
 
         switch (ctx.children[1].symbol.type) {
             case Lexer.MODKW:
-                assembly += `${loop_label}_start LDA ${left_operand}\n` +
+                assembly += `${loop_label}_start LDA ${left_operand_temp}\n` +
                     `SUB ${right_operand}\n` +
-                    `STA ${left_operand}\n` +
+                    `STA ${left_operand_temp}\n` +
                     `LDA ${total_label}\n` +
-                    `ADD literal_1\n` +
+                    `ADD ${literal_one_name}\n` +
                     `STA ${total_label}\n` +
-                    `LDA ${left_operand}\n` +
+                    `LDA ${left_operand_temp}\n` +
                     `BRP ${loop_label}_start\n` +
                     `${loop_label}_end ADD ${right_operand}\n` +
                     `STA ${total_label}\n`;
                 break;
 
             case Lexer.DIVKW:
-                assembly += `${loop_label}_start LDA ${left_operand}\n` +
+                assembly += `${loop_label}_start LDA ${left_operand_temp}\n` +
                     `SUB ${right_operand}\n` +
-                    `STA ${left_operand}\n` +
+                    `STA ${left_operand_temp}\n` +
                     `LDA ${total_label}\n` +
-                    `ADD literal_1\n` +
+                    `ADD ${literal_one_name}\n` +
                     `STA ${total_label}\n` +
-                    `LDA ${left_operand}\n` +
+                    `LDA ${left_operand_temp}\n` +
                     `BRP ${loop_label}_start\n` +
                     `${loop_label}_end LDA ${total_label}\n` +
-                    `SUB literal_1\n` +
+                    `SUB ${literal_one_name}\n` +
                     `STA ${total_label}\n`;
                 break;
         }
@@ -363,72 +378,41 @@ class MyVisitor extends Visitor {
     }
 
     visitPow(ctx) {
-        console.log("POW", ctx);
         if (ctx.children.length < 3) return ctx.children[0].accept(this);
 
-        // Left operand should aready be loaded into memory
         let left_operand = ctx.children[0].accept(this).toString();
-        // right operand should be a label
         let right_operand = ctx.children[2].accept(this).toString();
-
-        let left_operand_temp = left_operand;
-        let right_operand_temp = right_operand;
-
-        let total_label = `calc_temp_${this.temp_calc_id++}`;
-        if (!this.symbol_table.already_exists(total_label)) {
-            this.symbol_table.add_symbol(total_label, SYMBOL_TYPES.INTEGER_LITERAL, 0);
-        }
-
-        let light_total_label = `calc_temp_${this.temp_calc_id++}`;
-        if (!this.symbol_table.already_exists(light_total_label)) {
-            this.symbol_table.add_symbol(light_total_label, SYMBOL_TYPES.INTEGER_LITERAL, 0);
-        }
+        let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
 
         let outer_loop_label = `loop_${this.loop_id++}`;
         let inner_loop_label = `loop_${this.loop_id++}`;
 
         // Add the literal one to the symbol table for ocunting purposes
-        let literal_one_name = this.symbol_table.generate_label(1, SYMBOL_TYPES.INTEGER_LITERAL);
-        if (!this.symbol_table.already_exists(literal_one_name)) {
-            this.symbol_table.add_symbol(literal_one_name, SYMBOL_TYPES.INTEGER_LITERAL, 1);
-        }
+        let literal_one_name = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
+        let literal_zero_name = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
 
-        let literal_zero_name = this.symbol_table.generate_label(0, SYMBOL_TYPES.INTEGER_LITERAL);
-        if (!this.symbol_table.already_exists(literal_zero_name)) {
-            this.symbol_table.add_symbol(literal_zero_name, SYMBOL_TYPES.INTEGER_LITERAL, 0);
-        }
         // Create a place to store the copy of the left operand required to complete this calculation
-        let left_operand_copy = `calc_temp_${this.temp_calc_id++}`;
-        if (!this.symbol_table.already_exists(left_operand_copy)) {
-            this.symbol_table.add_symbol(left_operand_copy, SYMBOL_TYPES.INTEGER_LITERAL, 0);
-        }
+        let left_operand_copy = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
 
-        if (left_operand.startsWith("literal_")) {
-            left_operand_temp = `calc_temp_${this.temp_calc_id++}`;
-            if (!this.symbol_table.already_exists(left_operand_temp)) {
-                this.symbol_table.add_symbol(left_operand_temp, SYMBOL_TYPES.INTEGER_LITERAL, 0);
-            }
+        // Copy the left and right operands to avoid mutation
+        let left_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+        assembly += `LDA ${left_operand}\n` + 
+                    `STA ${left_operand_temp}\n`;
 
-            assembly += `LDA ${left_operand}\n` + 
-                        `STA ${left_operand_temp}\n`;
-        }
-
-        if (right_operand.startsWith("literal_")) {
-            right_operand_temp = `calc_temp_${this.temp_calc_id++}`;
-            if (!this.symbol_table.already_exists(right_operand_temp)) {
-                this.symbol_table.add_symbol(right_operand_temp, SYMBOL_TYPES.INTEGER_LITERAL, 0);
-            }
-
-            assembly += `LDA ${right_operand}\n` + 
-                        `STA ${right_operand_temp}\n`;
-        }
+        // Copy the left and right operands to avoid mutation
+        let right_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+        assembly += `LDA ${right_operand}\n` + 
+                    `STA ${right_operand_temp}\n`;
 
         assembly += '\n';
         switch (ctx.children[1].symbol.type) {
-            // NOTE: This piece of code is messing with literals. this is a problem, because when other programs decide to use those literals, they are not the value they should be
+            // NOTE: This piece of code was messing with literals. this is a problem, because when other programs decide to use those literals, they are not the value they should be
             // NOTE: This also decided not to work again due to a faulty algorithm, commiting to save it
+
+            // WORKING NOW
             case Lexer.POW:
                 assembly +=
+                    // For explanation of pseudocode, see flowchart "LMC POW.drawio"
                     `LDA ${left_operand_temp}\n` +
                     `STA ${left_operand_copy}\n` +
                     `${outer_loop_label}_start BRA ${inner_loop_label}_start\n` +
@@ -437,18 +421,18 @@ class MyVisitor extends Visitor {
                     `ADD ${left_operand_temp}\n` +
                     `STA ${total_label}\n` +
                     `LDA ${left_operand_copy}\n` +
-                    `SUB literal_1\n` +
+                    `SUB ${literal_one_name}\n` +
                     `STA ${left_operand_copy}\n` +
                     `BRZ ${inner_loop_label}_end\n` +
                     `BRA ${inner_loop_label}_start\n` +
                     `${inner_loop_label}_end LDA ${right_operand_temp}\n` + 
-                    `SUB literal_1\n` +
+                    `SUB ${literal_one_name}\n` +
                     `STA ${right_operand_temp}\n` +
-                    `SUB literal_1\n` +
+                    `SUB ${literal_one_name}\n` +
                     `BRZ ${outer_loop_label}_end\n` +
                     `LDA ${total_label}\n` +
                     `STA ${left_operand_copy}\n` +
-                    `LDA literal_0\n` +
+                    `LDA ${literal_zero_name}\n` +
                     `STA ${total_label}\n` +
                     `BRA ${outer_loop_label}_start\n` + 
                     `${outer_loop_label}_end LDA ${total_label}\n`;
@@ -460,6 +444,23 @@ class MyVisitor extends Visitor {
         }
         return total_label;
     }
+
+    visitBracket(ctx) {
+        if (ctx.children.length == 1) return ctx.children[0].accept(this);
+        if (ctx.children.length == 3) return ctx.children[1].accept(this);
+        
+        console.log("NEG FOUND", ctx);
+        let literal_zero_name = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
+        let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+        
+        let left_label = ctx.children[1].accept(this);
+
+        assembly += `LDA ${literal_zero_name}\n` +
+                    `SUB ${left_label}\n` + 
+                    `STA ${total_label}\n`;
+        return left_label;
+    }
+
 
     visitTerminal(ctx) {
         return ctx.symbol.text;
