@@ -1,6 +1,6 @@
 const { antlr4, Lexer, Parser, Visitor } = self.parser.default;
 
-const input = "a = 10 MOD 2\n";
+const input = "a = 10 < 4 AND 4 < 10\n";
 const chars = new antlr4.InputStream(input);
 const lexer = new Lexer(chars);
 const tokens = new antlr4.CommonTokenStream(lexer);
@@ -24,7 +24,7 @@ class SymbolTable {
     }
 
     add_symbol(name, type, starting_value) {
-        console.log(name, type, starting_value);
+        //console.log(name, type, starting_value);
         switch (type) {
             case SYMBOL_TYPES.INTEGER_LITERAL:
                 if (!this.already_exists(name)) {
@@ -91,7 +91,7 @@ class SymbolTable {
                 case SYMBOL_TYPES.INTEGER_LITERAL:
                 case SYMBOL_TYPES.TEMP_CALC:
                 case SYMBOL_TYPES.VARIABLE:
-                    console.log(`${symbol} DAT ${this.table[symbol].starting_value}\n`);
+                    //console.log(`${symbol} DAT ${this.table[symbol].starting_value}\n`);
                     assembly += `${symbol} DAT ${this.table[symbol].starting_value}\n`;
                     break;
 
@@ -118,7 +118,7 @@ class SymbolTable {
 
     generate_symbol(initial_value, type) {
         let literal_name = this.generate_label(initial_value, type);
-        console.log("Generating", literal_name);
+        //console.log("Generating", literal_name);
         if (!this.already_exists(literal_name)) {
             this.add_symbol(literal_name, type, initial_value);
         }
@@ -135,7 +135,7 @@ class Symbol {
     }
 }
 
-console.log(tree);
+//console.log(tree);
 // A table for holding symbols - defining when they are created. This is a top level one, it should contain other sub-tables for functions and scopes. To be sorted out later
 
 let assembly = "";
@@ -149,12 +149,12 @@ class MyVisitor extends Visitor {
 
         this._visitTerminal = this.visitTerminal;
         this.visitTerminal = ctx => {
-            console.log('TERMINAL', ctx)
+            //console.log('TERMINAL', ctx)
             return this._visitTerminal(ctx);
         }
         this._visitChildren = this.visitChildren;
         this.visitChildren = ctx => {
-            console.log('CHILD', ctx);
+            //console.log('CHILD', ctx);
             return this._visitChildren(ctx);
         }
 
@@ -163,8 +163,8 @@ class MyVisitor extends Visitor {
     }
 
     visitStat(ctx) {
-        console.log("stat");
-        console.log(ctx.stat_identifier);
+        //console.log("stat");
+        //console.log(ctx.stat_identifier);
 
         let left_label = ctx.stat_identifier.accept(this);
         // This is one of the only ways to bring a variable into existence, so lets add it to the symbol table here
@@ -184,19 +184,19 @@ class MyVisitor extends Visitor {
     visitTrue_id(ctx) {
         // TODO: REVISIT
         if (!ctx) return this.visitChildren(ctx);
-        console.log("visisting true_Id");
-        console.log(ctx);
+        //console.log("visisting true_Id");
+        //console.log(ctx);
 
         let text;
 
         switch (ctx.start.type) {
             case Lexer.ID:
-                console.log("Encountered an ID");
+                //console.log("Encountered an ID");
                 text = ctx.start.text;
                 text = "identifier_" + current_scope_prefix + "_" + text;
                 break;
             default:
-                console.log("Encountered a Not an ID: PANIC");
+                //console.log("Encountered a Not an ID: PANIC");
                 alert("Illegal Token");
                 break;
         }
@@ -206,14 +206,39 @@ class MyVisitor extends Visitor {
     }
 
     visitExpr(ctx) {
-        // TODO: THIS ONLY WORKS FOR INTEGER LITERAL SO FAR
-        console.log("EXPR", ctx);
+        // TODO: NEXT UP
+
+        // An expresion should always return a value, so make sure it does that
+        if (ctx.children.length < 2) return this.visitChildren(ctx);
+
+        // If it has a length of more than one, it is a logical negation/and/or
+
+        let left_operand = ctx.children[0].accept(this);
+        let mid_operand = ctx.children[1].accept(this);
+        let output_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+
+        let literal_one_name = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
+        let literal_zero_name = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
+
+        if (left_operand == 'NOT') {
+            assembly += 
+                    `LDA ${literal_zero_name}\n` +
+                    `SUB ${mid_operand}\n` +
+                    `SUB ${literal_one_name}\n` + 
+                    `STA ${output_label}`;
+        }
+        else {
+            if (mid_operand == 'AND') {
+                
+            }
+            else if (mid_operand == 'OR') console.log("OR");
+        }
         return this.visitChildren(ctx);
     }
 
     visitLiteral(ctx) {
         let children_read_value = this.visitChildren(ctx).toString();
-        console.log(children_read_value);
+        //console.log(children_read_value);
         let literal_name;
 
         // switch on the value of the only child
@@ -242,8 +267,6 @@ class MyVisitor extends Visitor {
 
     visitCalc(ctx) {
         if (ctx.children.length < 3) return ctx.children[0].accept(this);
-
-        // WARNING: DOES NOT FUNCTION CORRECTLY WITH NEGATIVES. TO FIX WOULD INVOLVE MAKING PRODUCED CODE EVEN LESS INTUITIVE
 
         // Left operand should aready be loaded into memory
         let left_operand = ctx.children[0].accept(this);
@@ -288,8 +311,8 @@ class MyVisitor extends Visitor {
             case Lexer.MUL:
                 // copy the right operand to avoid mutation
                 let right_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
-                assembly += 
-                    `LDA ${right_operand}\n` + 
+                assembly +=
+                    `LDA ${right_operand}\n` +
                     `STA ${right_operand_temp}\n` +
 
                     `${loop_label}_start LDA ${total_label}\n` +
@@ -306,8 +329,8 @@ class MyVisitor extends Visitor {
             case Lexer.DIV:
                 // TODO: optimise assembly
                 let left_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
-                assembly += 
-                    `LDA ${left_operand}\n` + 
+                assembly +=
+                    `LDA ${left_operand}\n` +
                     `STA ${left_operand_temp}\n` +
                     `${loop_label}_start LDA ${left_operand_temp}\n` +
                     `SUB ${right_operand}\n` +
@@ -340,8 +363,8 @@ class MyVisitor extends Visitor {
 
         // Copy the left operands to avoid mutation
         let left_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
-        assembly += `LDA ${left_operand}\n` + 
-                    `STA ${left_operand_temp}\n`;
+        assembly += `LDA ${left_operand}\n` +
+            `STA ${left_operand_temp}\n`;
 
         // Add the literal one to the symbol table for ocunting purposes
         let literal_one_name = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
@@ -396,13 +419,13 @@ class MyVisitor extends Visitor {
 
         // Copy the left and right operands to avoid mutation
         let left_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
-        assembly += `LDA ${left_operand}\n` + 
-                    `STA ${left_operand_temp}\n`;
+        assembly += `LDA ${left_operand}\n` +
+            `STA ${left_operand_temp}\n`;
 
         // Copy the left and right operands to avoid mutation
         let right_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
-        assembly += `LDA ${right_operand}\n` + 
-                    `STA ${right_operand_temp}\n`;
+        assembly += `LDA ${right_operand}\n` +
+            `STA ${right_operand_temp}\n`;
 
         assembly += '\n';
         switch (ctx.children[1].symbol.type) {
@@ -425,7 +448,7 @@ class MyVisitor extends Visitor {
                     `STA ${left_operand_copy}\n` +
                     `BRZ ${inner_loop_label}_end\n` +
                     `BRA ${inner_loop_label}_start\n` +
-                    `${inner_loop_label}_end LDA ${right_operand_temp}\n` + 
+                    `${inner_loop_label}_end LDA ${right_operand_temp}\n` +
                     `SUB ${literal_one_name}\n` +
                     `STA ${right_operand_temp}\n` +
                     `SUB ${literal_one_name}\n` +
@@ -434,7 +457,7 @@ class MyVisitor extends Visitor {
                     `STA ${left_operand_copy}\n` +
                     `LDA ${literal_zero_name}\n` +
                     `STA ${total_label}\n` +
-                    `BRA ${outer_loop_label}_start\n` + 
+                    `BRA ${outer_loop_label}_start\n` +
                     `${outer_loop_label}_end LDA ${total_label}\n`;
 
                 break;
@@ -448,19 +471,113 @@ class MyVisitor extends Visitor {
     visitBracket(ctx) {
         if (ctx.children.length == 1) return ctx.children[0].accept(this);
         if (ctx.children.length == 3) return ctx.children[1].accept(this);
-        
-        console.log("NEG FOUND", ctx);
+
+        //console.log("NEG FOUND", ctx);
         let literal_zero_name = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
         let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
-        
+
         let left_label = ctx.children[1].accept(this);
 
         assembly += `LDA ${literal_zero_name}\n` +
-                    `SUB ${left_label}\n` + 
-                    `STA ${total_label}\n`;
+            `SUB ${left_label}\n` +
+            `STA ${total_label}\n`;
         return left_label;
     }
 
+    visitComparison(ctx) {
+        //console.log("comparison", ctx);
+        if (ctx.children.length < 3) return this.visitChildren(ctx);
+
+        let left_label = ctx.children[0].accept(this);
+        let right_label = ctx.children[2].accept(this);
+
+        let result_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+
+        let literal_zero_name = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
+        let literal_one_name = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
+        //console.log(ctx.children[1].accept(this));
+        switch (ctx.children[1].accept(this)) {
+            case '<':
+                // A < B
+                // IF A - B is negative
+                // NOTE: tested with 4 and 20 < 10
+                assembly += `LDA ${left_label}\n` + 
+                            `SUB ${right_label}\n` +
+                            `BRP ${result_label}_false\n` +
+                            `LDA ${literal_one_name}\n` +
+                            `BRA ${result_label}_end\n` +
+                            `${result_label}_false LDA ${literal_zero_name}\n` +
+                            `${result_label}_end STA ${result_label}\n`;
+                break;
+
+            case '>':
+                // B < A
+                // IF B - A is negative
+                // NOTE: Tested with 10>4, 4 > 10, 4>4
+                assembly += `LDA ${right_label}\n` + 
+                            `SUB ${left_label}\n` +
+                            `BRP ${result_label}_false\n` +
+                            `LDA ${literal_one_name}\n` +
+                            `BRA ${result_label}_end\n` +
+                            `${result_label}_false LDA ${literal_zero_name}\n` +
+                            `${result_label}_end STA ${result_label}\n`;
+                break;
+
+            case '==':
+                // B == A
+                // IF B - A is zero 
+                // NOTE: Tested with 10 == 10, 4==4
+                assembly += `LDA ${right_label}\n` + 
+                            `SUB ${left_label}\n` +
+                            `BRZ ${result_label}_true\n` +
+                            `LDA ${literal_zero_name}\n` +
+                            `BRA ${result_label}_end\n` +
+                            `${result_label}_true LDA ${literal_one_name}\n` +
+                            `${result_label}_end STA ${result_label}\n`;
+                break;
+
+            case '>=':
+                // B >= A
+                // IF B - A is positive 
+                // NOTE: TESTED WITH 10 >= 4, 4 >= 10, 10 >= 10
+                assembly += `LDA ${left_label}\n` + 
+                            `SUB ${right_label}\n` +
+                            `BRP ${result_label}_true\n` +
+                            `LDA ${literal_zero_name}\n` +
+                            `BRA ${result_label}_end\n` +
+                            `${result_label}_true LDA ${literal_one_name}\n` +
+                            `${result_label}_end STA ${result_label}\n`;
+                break;
+
+            case '<=':
+                // B <= A
+                // IF A - B is positive 
+                // NOTE: TESTED WITH 4 <= 10, 10 <= 4, 10 <= 10
+                assembly += `LDA ${right_label}\n` + 
+                            `SUB ${left_label}\n` +
+                            `BRP ${result_label}_true\n` +
+                            `LDA ${literal_zero_name}\n` +
+                            `BRA ${result_label}_end\n` +
+                            `${result_label}_true LDA ${literal_one_name}\n` +
+                            `${result_label}_end STA ${result_label}\n`;
+                break;
+
+            case '!=':
+                // B != A
+                // IF A - B is not zero 
+                // NOTE: Tested with 4 != 10, and 10 != 10
+                assembly += `LDA ${left_label}\n` + 
+                            `SUB ${right_label}\n` +
+                            `BRZ ${result_label}_false\n` +
+                            `LDA ${literal_one_name}\n` +
+                            `BRA ${result_label}_end\n` +
+                            `${result_label}_false LDA ${literal_zero_name}\n` +
+                            `${result_label}_end STA ${result_label}\n`;
+                break;
+        }
+
+        return result_label;
+    }
 
     visitTerminal(ctx) {
         return ctx.symbol.text;
