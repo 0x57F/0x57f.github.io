@@ -1,6 +1,6 @@
 const { antlr4, Lexer, Parser, Visitor } = self.parser.default;
 
-const input = "a = 10 < 4 AND 4 < 10\n";
+const input = "while i < 100 AND j > 10\n\ti = i + j\nendwhile\n"
 const chars = new antlr4.InputStream(input);
 const lexer = new Lexer(chars);
 const tokens = new antlr4.CommonTokenStream(lexer);
@@ -229,9 +229,19 @@ class MyVisitor extends Visitor {
         }
         else {
             if (mid_operand == 'AND') {
-                
+            assembly += 
+                    `LDA ${literal_zero_name}\n` +
+                    `SUB ${mid_operand}\n` +
+                    `SUB ${literal_one_name}\n` + 
+                    `STA ${output_label}`;
             }
-            else if (mid_operand == 'OR') console.log("OR");
+            else if (mid_operand == 'OR') {
+            assembly += 
+                    `LDA ${literal_zero_name}\n` +
+                    `SUB ${mid_operand}\n` +
+                    `SUB ${literal_one_name}\n` + 
+                    `STA ${output_label}`;
+            }
         }
         return this.visitChildren(ctx);
     }

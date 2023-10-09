@@ -115,6 +115,8 @@ class Instruction {
     }
 }
 
+// TODO: split into an assembler class and a virtual machine class
+
 /**
  * A class to represent a Virtual Machine running a modified Little Man Computer architecture
  */
@@ -448,5 +450,6 @@ let code = "" +
 
 let VM = new VirtualMachine(code);
 VM.input_stack = [10, 2];
+console.log(VM.ram);
 VM.run();
 
