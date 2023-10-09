@@ -5,7 +5,7 @@ const chars = new antlr4.InputStream(input);
 const lexer = new Lexer(chars);
 const tokens = new antlr4.CommonTokenStream(lexer);
 const parser = new Parser(tokens);
-const tree = parser.stat();
+const tree = parser.program();
 
 const SYMBOL_TYPES = {
     VARIABLE: 0,
@@ -247,11 +247,14 @@ class MyVisitor extends Visitor {
     }
 
     visitLiteral(ctx) {
+        if (ctx == undefined) return;
         let children_read_value = this.visitChildren(ctx).toString();
-        //console.log(children_read_value);
+        console.log(children_read_value);
         let literal_name;
 
+        console.log(ctx.children[0].ID(0));
         // switch on the value of the only child
+        // NOTE: There was a bug when trying to get an identifier out of this, tried to resolve with a parameter name - see git snapshot
         switch (ctx.children[0].symbol.type) {
             case Lexer.INT:
                 literal_name = this.symbol_table.generate_symbol(children_read_value, SYMBOL_TYPES.INTEGER_LITERAL);
@@ -587,6 +590,38 @@ class MyVisitor extends Visitor {
         }
 
         return result_label;
+    }
+
+    /**
+    * WHILE LOOP FORMAT:
+    * while COND
+    *   do_stuff
+    * endwhile
+    *
+    * IN ASSEMBLY:
+    * WHILE_START
+    * CHECK_CONDTION
+    * IF False BRANCH TO END
+    * do_stuff
+    * END endwhile
+    */
+
+    visitWhile_start(ctx) {
+        // We are interested in the label to the condition
+        if (ctx == undefined) return;
+        if (ctx.children.length < 3) return;
+
+        return this.visitChildren(ctx);
+    }
+
+    visitWhile(ctx) {
+        if (ctx == undefined) return;
+        if (ctx.children.length < 4) return;
+
+        // set a starting label, and do some loopy stuff
+        assembly += `${this.loop_id++}_start `;
+        let while_condition = ctx.children[0].accept(this);
+        return;
     }
 
     visitTerminal(ctx) {
