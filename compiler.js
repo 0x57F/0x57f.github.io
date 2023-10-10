@@ -522,34 +522,33 @@ class MyVisitor extends Visitor {
 
         let result_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
 
-        let literal_zero_name = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
-        let literal_one_name = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
+        let zero = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
+        let one = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
         //console.log(ctx.children[1].accept(this));
         switch (ctx.children[1].accept(this)) {
-            // BUG: < and > are acting like >= and <=
             case '<':
                 // A < B
-                // IF A - B is negative
+                // IF A - B - 1 is negative
                 // NOTE: tested with 4 and 20 < 10
                 assembly += `LDA ${left_label}\n` +
                     `SUB ${right_label}\n` +
-                    `BRP ${result_label}_false\n` +
-                    `LDA ${literal_one_name}\n` +
+                    `BRP ${result_label}_true\n` +
+                    `LDA ${zero}\n` +
                     `BRA ${result_label}_end\n` +
-                    `${result_label}_false LDA ${literal_zero_name}\n` +
+                    `${result_label}_true LDA ${one}\n` +
                     `${result_label}_end STA ${result_label}\n`;
                 break;
 
             case '>':
                 // B < A
-                // IF B - A is negative
+                // IF B - A - 1 is negative
                 // NOTE: Tested with 10>4, 4 > 10, 4>4
                 assembly += `LDA ${right_label}\n` +
                     `SUB ${left_label}\n` +
                     `BRP ${result_label}_false\n` +
-                    `LDA ${literal_one_name}\n` +
+                    `LDA ${one}\n` +
                     `BRA ${result_label}_end\n` +
-                    `${result_label}_false LDA ${literal_zero_name}\n` +
+                    `${result_label}_false LDA ${zero}\n` +
                     `${result_label}_end STA ${result_label}\n`;
                 break;
 
@@ -560,9 +559,9 @@ class MyVisitor extends Visitor {
                 assembly += `LDA ${right_label}\n` +
                     `SUB ${left_label}\n` +
                     `BRZ ${result_label}_true\n` +
-                    `LDA ${literal_zero_name}\n` +
+                    `LDA ${zero}\n` +
                     `BRA ${result_label}_end\n` +
-                    `${result_label}_true LDA ${literal_one_name}\n` +
+                    `${result_label}_true LDA ${one}\n` +
                     `${result_label}_end STA ${result_label}\n`;
                 break;
 
@@ -573,9 +572,9 @@ class MyVisitor extends Visitor {
                 assembly += `LDA ${left_label}\n` +
                     `SUB ${right_label}\n` +
                     `BRP ${result_label}_true\n` +
-                    `LDA ${literal_zero_name}\n` +
+                    `LDA ${zero}\n` +
                     `BRA ${result_label}_end\n` +
-                    `${result_label}_true LDA ${literal_one_name}\n` +
+                    `${result_label}_true LDA ${one}\n` +
                     `${result_label}_end STA ${result_label}\n`;
                 break;
 
@@ -586,9 +585,9 @@ class MyVisitor extends Visitor {
                 assembly += `LDA ${right_label}\n` +
                     `SUB ${left_label}\n` +
                     `BRP ${result_label}_true\n` +
-                    `LDA ${literal_zero_name}\n` +
+                    `LDA ${zero}\n` +
                     `BRA ${result_label}_end\n` +
-                    `${result_label}_true LDA ${literal_one_name}\n` +
+                    `${result_label}_true LDA ${one}\n` +
                     `${result_label}_end STA ${result_label}\n`;
                 break;
 
@@ -599,9 +598,9 @@ class MyVisitor extends Visitor {
                 assembly += `LDA ${left_label}\n` +
                     `SUB ${right_label}\n` +
                     `BRZ ${result_label}_false\n` +
-                    `LDA ${literal_one_name}\n` +
+                    `LDA ${one}\n` +
                     `BRA ${result_label}_end\n` +
-                    `${result_label}_false LDA ${literal_zero_name}\n` +
+                    `${result_label}_false LDA ${zero}\n` +
                     `${result_label}_end STA ${result_label}\n`;
                 break;
         }

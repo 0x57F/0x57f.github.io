@@ -43,6 +43,8 @@ const TOKENS = {
 
 const KEYWORDS = Object.keys(OPCODES_TO_NUMERIC);
 
+// TODO: ADD COMMENT SUPPORT
+
 /**
  * A class representing a token. Has a type and a value
  */
@@ -417,11 +419,13 @@ class VirtualMachine {
      * Run the program in ram by repeatedly calling the step function until the program is done
      *
      */
-    run() {
+    async run() {
+        const delay = ms => new Promise(res => setTimeout(res, ms));
         this.pc = 0;
         let done = false;
-        console.log(this.ram);
+
         while (!done) {
+            // await delay(100);
             done = this.step();
         }
     }
@@ -429,7 +433,10 @@ class VirtualMachine {
 
 let code = `LDA literal_1
 STA identifier_global_i
+
+
 loop_0_start NOP
+
 LDA identifier_global_i
 SUB literal_100
 BRP temp_calc_0_false
@@ -439,23 +446,22 @@ temp_calc_0_false LDA literal_0
 temp_calc_0_end STA temp_calc_0
 BRZ loop_0_end
 LDA identifier_global_i
+OUT
 ADD literal_1
 STA temp_calc_1
 LDA temp_calc_1
 STA identifier_global_i
-
-OUT
-
 BRA loop_0_start
 loop_0_end NOP
+HLT
 identifier_global_i DAT 0
 literal_1 DAT 1
-literal_100 DAT 100
+literal_100 DAT 10
 temp_calc_0 DAT 0
 literal_0 DAT 0
 temp_calc_1 DAT 0`
 
 let VM = new VirtualMachine(code);
 VM.input_stack = [10, 2];
-VM.run();
-
+await VM.run();
+console.log(VM.ram);
