@@ -252,11 +252,14 @@ class MyVisitor extends Visitor {
         console.log(children_read_value);
         let literal_name;
 
-        console.log(ctx.name);
+        // If ctx.name exists then we got a literal
+        if (ctx.name) {
+            return this.visitChildren(ctx);
+        }
 
-        console.log(ctx.children[0].ID(0));
         // switch on the value of the only child
         // NOTE: There was a bug when trying to get an identifier out of this, tried to resolve with a parameter name - see git snapshot
+        // This was caused by an unthought of way to get to a variable name
         switch (ctx.children[0].symbol.type) {
             case Lexer.INT:
                 literal_name = this.symbol_table.generate_symbol(children_read_value, SYMBOL_TYPES.INTEGER_LITERAL);
