@@ -15,6 +15,7 @@ const OPCODES_TO_NUMERIC = {
     INP: 9,
     OUT: 9,
     OUTC: 9,
+    NOP: 9,
     HLT: 0,
     RET: 0,
     DAT: -1,
@@ -28,6 +29,7 @@ const OPCODES_TO_EXTRA_NUMERIC = {
     INP: 1,
     OUT: 2,
     OUTC: 3,
+    NOP: 999,
     HLT: 0,
     RET: 1
 }
@@ -360,6 +362,7 @@ class VirtualMachine {
             case OPCODES_TO_NUMERIC.INP:
             case OPCODES_TO_NUMERIC.OUT:
             case OPCODES_TO_NUMERIC.OUTC:
+            case OPCODES_TO_NUMERIC.NOP:
                 switch (instruction.operand) {
                     case OPCODES_TO_EXTRA_NUMERIC.INP:
                         console.warn("Input not fully implemented, using a predetermined stack");
@@ -372,6 +375,9 @@ class VirtualMachine {
 
                     case OPCODES_TO_EXTRA_NUMERIC.OUTC:
                         console.log(String.fromCharCode(this.accumulator));
+                        break;
+
+                    case OPCODES_TO_EXTRA_NUMERIC.NOP:
                         break;
 
                 }
@@ -420,36 +426,36 @@ class VirtualMachine {
         }
     }
 }
-let code = "" +
-"LDA string_0\n" +
-"STA identifier_global_a\n" +
-"LDA identifier_global_a\n" +
-"start ADD literal_1\n" +
-"STA loc\n" +
-"LDACC\n" +
-"BRZ end\n" +
-"OUTC\n" +
-"LDA loc\n" +
-"BRA start\n" +
-"end HLT\n" +
-"literal_1 DAT 1\n" +
-"identifier_global_a DAT 0\n" +
-"string_0 DAT 13\n" +
-"string_0_0 DAT 79\n" +
-"string_0_1 DAT 118\n" +
-"string_0_2 DAT 101\n" +
-"string_0_3 DAT 114\n" +
-"string_0_4 DAT 32\n" +
-"string_0_5 DAT 57\n" +
-"string_0_6 DAT 48\n" +
-"string_0_7 DAT 48\n" +
-"string_0_8 DAT 48\n" +
-"string_0_9 DAT 48\n" +
-"string_0_10 DAT 0\n" +
-"loc     DAT\n"
+
+let code = `LDA literal_1
+STA identifier_global_i
+loop_0_start NOP
+LDA identifier_global_i
+SUB literal_100
+BRP temp_calc_0_false
+LDA literal_1
+BRA temp_calc_0_end
+temp_calc_0_false LDA literal_0
+temp_calc_0_end STA temp_calc_0
+BRZ loop_0_end
+LDA identifier_global_i
+ADD literal_1
+STA temp_calc_1
+LDA temp_calc_1
+STA identifier_global_i
+
+OUT
+
+BRA loop_0_start
+loop_0_end NOP
+identifier_global_i DAT 0
+literal_1 DAT 1
+literal_100 DAT 100
+temp_calc_0 DAT 0
+literal_0 DAT 0
+temp_calc_1 DAT 0`
 
 let VM = new VirtualMachine(code);
 VM.input_stack = [10, 2];
-console.log(VM.ram);
 VM.run();
 

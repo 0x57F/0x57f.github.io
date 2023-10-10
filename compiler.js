@@ -1,6 +1,11 @@
 const { antlr4, Lexer, Parser, Visitor } = self.parser.default;
 
-const input = "while i < 100 AND j > 10\n\ti = i + j\nendwhile\n"
+// TODO: TEST WHILE LOOPS
+const input = `i = 1
+while i < 100
+i = i + 1
+endwhile
+`;
 const chars = new antlr4.InputStream(input);
 const lexer = new Lexer(chars);
 const tokens = new antlr4.CommonTokenStream(lexer);
@@ -207,7 +212,9 @@ class MyVisitor extends Visitor {
 
     visitExpr(ctx) {
         // TODO: NEXT UP
+        // NOTE: Started this at some point then moved on
 
+        if (ctx == undefined) return;
         // An expresion should always return a value, so make sure it does that
         if (ctx.children.length < 2) return this.visitChildren(ctx);
 
@@ -217,30 +224,34 @@ class MyVisitor extends Visitor {
         let mid_operand = ctx.children[1].accept(this);
         let output_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
 
-        let literal_one_name = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
-        let literal_zero_name = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
+        let one = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
+        let zero = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
 
         if (left_operand == 'NOT') {
-            assembly += 
-                    `LDA ${literal_zero_name}\n` +
-                    `SUB ${mid_operand}\n` +
-                    `SUB ${literal_one_name}\n` + 
-                    `STA ${output_label}`;
+            assembly +=
+                `LDA ${left_operand}\n` +
+                `BRP ${output_label}_false\n` +
+                `LDA ${one}\n` +
+                `BRA ${output_label}_end\n` +
+                `LDA ${zero}\n` +
+                `${output_label}_end STA ${output_label}\n`;
         }
         else {
+            let right_operand = ctx.children[2].accept(this);
             if (mid_operand == 'AND') {
-            assembly += 
-                    `LDA ${literal_zero_name}\n` +
-                    `SUB ${mid_operand}\n` +
-                    `SUB ${literal_one_name}\n` + 
-                    `STA ${output_label}`;
+                // TODO:
+                // return true if the results are both true
+                assembly += ``
             }
             else if (mid_operand == 'OR') {
-            assembly += 
-                    `LDA ${literal_zero_name}\n` +
-                    `SUB ${mid_operand}\n` +
-                    `SUB ${literal_one_name}\n` + 
-                    `STA ${output_label}`;
+                assembly +=
+                    `LDA ${left_operand}\n` +
+                    `ADD ${right_operand}\n` +
+                    `BRZ ${output_label}_false\n` +
+                    `LDA ${one}\n` +
+                    `BRA ${output_label}_end\n` +
+                    `${output_label}_false LDA ${zero}\n` +
+                    `${output_label}_end STA ${output_label}\n`;
             }
         }
         return this.visitChildren(ctx);
@@ -515,82 +526,83 @@ class MyVisitor extends Visitor {
         let literal_one_name = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
         //console.log(ctx.children[1].accept(this));
         switch (ctx.children[1].accept(this)) {
+            // BUG: < and > are acting like >= and <=
             case '<':
                 // A < B
                 // IF A - B is negative
                 // NOTE: tested with 4 and 20 < 10
-                assembly += `LDA ${left_label}\n` + 
-                            `SUB ${right_label}\n` +
-                            `BRP ${result_label}_false\n` +
-                            `LDA ${literal_one_name}\n` +
-                            `BRA ${result_label}_end\n` +
-                            `${result_label}_false LDA ${literal_zero_name}\n` +
-                            `${result_label}_end STA ${result_label}\n`;
+                assembly += `LDA ${left_label}\n` +
+                    `SUB ${right_label}\n` +
+                    `BRP ${result_label}_false\n` +
+                    `LDA ${literal_one_name}\n` +
+                    `BRA ${result_label}_end\n` +
+                    `${result_label}_false LDA ${literal_zero_name}\n` +
+                    `${result_label}_end STA ${result_label}\n`;
                 break;
 
             case '>':
                 // B < A
                 // IF B - A is negative
                 // NOTE: Tested with 10>4, 4 > 10, 4>4
-                assembly += `LDA ${right_label}\n` + 
-                            `SUB ${left_label}\n` +
-                            `BRP ${result_label}_false\n` +
-                            `LDA ${literal_one_name}\n` +
-                            `BRA ${result_label}_end\n` +
-                            `${result_label}_false LDA ${literal_zero_name}\n` +
-                            `${result_label}_end STA ${result_label}\n`;
+                assembly += `LDA ${right_label}\n` +
+                    `SUB ${left_label}\n` +
+                    `BRP ${result_label}_false\n` +
+                    `LDA ${literal_one_name}\n` +
+                    `BRA ${result_label}_end\n` +
+                    `${result_label}_false LDA ${literal_zero_name}\n` +
+                    `${result_label}_end STA ${result_label}\n`;
                 break;
 
             case '==':
                 // B == A
                 // IF B - A is zero 
                 // NOTE: Tested with 10 == 10, 4==4
-                assembly += `LDA ${right_label}\n` + 
-                            `SUB ${left_label}\n` +
-                            `BRZ ${result_label}_true\n` +
-                            `LDA ${literal_zero_name}\n` +
-                            `BRA ${result_label}_end\n` +
-                            `${result_label}_true LDA ${literal_one_name}\n` +
-                            `${result_label}_end STA ${result_label}\n`;
+                assembly += `LDA ${right_label}\n` +
+                    `SUB ${left_label}\n` +
+                    `BRZ ${result_label}_true\n` +
+                    `LDA ${literal_zero_name}\n` +
+                    `BRA ${result_label}_end\n` +
+                    `${result_label}_true LDA ${literal_one_name}\n` +
+                    `${result_label}_end STA ${result_label}\n`;
                 break;
 
             case '>=':
                 // B >= A
                 // IF B - A is positive 
                 // NOTE: TESTED WITH 10 >= 4, 4 >= 10, 10 >= 10
-                assembly += `LDA ${left_label}\n` + 
-                            `SUB ${right_label}\n` +
-                            `BRP ${result_label}_true\n` +
-                            `LDA ${literal_zero_name}\n` +
-                            `BRA ${result_label}_end\n` +
-                            `${result_label}_true LDA ${literal_one_name}\n` +
-                            `${result_label}_end STA ${result_label}\n`;
+                assembly += `LDA ${left_label}\n` +
+                    `SUB ${right_label}\n` +
+                    `BRP ${result_label}_true\n` +
+                    `LDA ${literal_zero_name}\n` +
+                    `BRA ${result_label}_end\n` +
+                    `${result_label}_true LDA ${literal_one_name}\n` +
+                    `${result_label}_end STA ${result_label}\n`;
                 break;
 
             case '<=':
                 // B <= A
                 // IF A - B is positive 
                 // NOTE: TESTED WITH 4 <= 10, 10 <= 4, 10 <= 10
-                assembly += `LDA ${right_label}\n` + 
-                            `SUB ${left_label}\n` +
-                            `BRP ${result_label}_true\n` +
-                            `LDA ${literal_zero_name}\n` +
-                            `BRA ${result_label}_end\n` +
-                            `${result_label}_true LDA ${literal_one_name}\n` +
-                            `${result_label}_end STA ${result_label}\n`;
+                assembly += `LDA ${right_label}\n` +
+                    `SUB ${left_label}\n` +
+                    `BRP ${result_label}_true\n` +
+                    `LDA ${literal_zero_name}\n` +
+                    `BRA ${result_label}_end\n` +
+                    `${result_label}_true LDA ${literal_one_name}\n` +
+                    `${result_label}_end STA ${result_label}\n`;
                 break;
 
             case '!=':
                 // B != A
                 // IF A - B is not zero 
                 // NOTE: Tested with 4 != 10, and 10 != 10
-                assembly += `LDA ${left_label}\n` + 
-                            `SUB ${right_label}\n` +
-                            `BRZ ${result_label}_false\n` +
-                            `LDA ${literal_one_name}\n` +
-                            `BRA ${result_label}_end\n` +
-                            `${result_label}_false LDA ${literal_zero_name}\n` +
-                            `${result_label}_end STA ${result_label}\n`;
+                assembly += `LDA ${left_label}\n` +
+                    `SUB ${right_label}\n` +
+                    `BRZ ${result_label}_false\n` +
+                    `LDA ${literal_one_name}\n` +
+                    `BRA ${result_label}_end\n` +
+                    `${result_label}_false LDA ${literal_zero_name}\n` +
+                    `${result_label}_end STA ${result_label}\n`;
                 break;
         }
 
@@ -623,9 +635,17 @@ class MyVisitor extends Visitor {
         if (ctx == undefined) return;
         if (ctx.children.length < 4) return;
 
+        let loop_id = this.loop_id++;
+
         // set a starting label, and do some loopy stuff
-        assembly += `${this.loop_id++}_start `;
+        assembly += `loop_${loop_id}_start NOP\n`;
         let while_condition = ctx.children[0].accept(this);
+        assembly += `BRZ loop_${loop_id}_end\n`;
+
+        ctx.children[1].accept(this);
+
+        assembly += `BRA loop_${loop_id}_start\n` +
+            `loop_${loop_id}_end NOP\n`;
         return;
     }
 
