@@ -431,35 +431,94 @@ class VirtualMachine {
     }
 }
 
-let code = `LDA literal_1
+let code = `LDA literal_0
 STA identifier_global_i
-
-
+LDA literal_10
+STA identifier_global_j
+loop_NaN_start NOP
+LDA identifier_global_i
+ADD literal_1
+STA temp_calc_0
+LDA temp_calc_0
+STA identifier_global_i
 loop_0_start NOP
-
 LDA identifier_global_i
 SUB literal_100
-BRP temp_calc_0_false
-LDA literal_1
-BRA temp_calc_0_end
-temp_calc_0_false LDA literal_0
-temp_calc_0_end STA temp_calc_0
-BRZ loop_0_end
+BRP temp_calc_1_true
+LDA literal_0
+BRA temp_calc_1_end
+temp_calc_1_true LDA literal_1
+temp_calc_1_end STA temp_calc_1
 LDA identifier_global_i
-OUT
+STA temp_calc_4
+loop_1_start LDA temp_calc_4
+SUB identifier_global_j
+STA temp_calc_4
+LDA temp_calc_3
 ADD literal_1
-STA temp_calc_1
-LDA temp_calc_1
-STA identifier_global_i
+STA temp_calc_3
+LDA temp_calc_4
+BRP loop_1_start
+loop_1_end ADD identifier_global_j
+STA temp_calc_3
+LDA temp_calc_3
+SUB literal_9
+BRZ temp_calc_5_false
+LDA literal_1
+BRA temp_calc_5_end
+temp_calc_5_false LDA literal_0
+temp_calc_5_end STA temp_calc_5
+LDA identifier_global_i
+SUB literal_100
+BRP temp_calc_6_true
+LDA literal_0
+BRA temp_calc_6_end
+temp_calc_6_true LDA literal_1
+temp_calc_6_end STA temp_calc_6
+LDA identifier_global_i
+STA temp_calc_8
+loop_2_start LDA temp_calc_8
+SUB identifier_global_j
+STA temp_calc_8
+LDA temp_calc_7
+ADD literal_1
+STA temp_calc_7
+LDA temp_calc_8
+BRP loop_2_start
+loop_2_end ADD identifier_global_j
+STA temp_calc_7
+LDA temp_calc_7
+SUB literal_9
+BRZ temp_calc_9_false
+LDA literal_1
+BRA temp_calc_9_end
+temp_calc_9_false LDA literal_0
+temp_calc_9_end STA temp_calc_9
+BRZ loop_0_end
 BRA loop_0_start
 loop_0_end NOP
+LDA do
+BRZ loop_NaN_end
+BRA loop_NaN_start
+loop_NaN_end NOP
 HLT
 identifier_global_i DAT 0
-literal_1 DAT 1
-literal_100 DAT 10
-temp_calc_0 DAT 0
 literal_0 DAT 0
-temp_calc_1 DAT 0`
+identifier_global_j DAT 0
+literal_10 DAT 10
+literal_1 DAT 1
+temp_calc_0 DAT 0
+literal_100 DAT 100
+temp_calc_1 DAT 0
+temp_calc_2 DAT 0
+temp_calc_3 DAT 0
+temp_calc_4 DAT 0
+literal_9 DAT 9
+temp_calc_5 DAT 0
+temp_calc_6 DAT 0
+temp_calc_7 DAT 0
+temp_calc_8 DAT 0
+temp_calc_9 DAT 0`
 
 let VM = new VirtualMachine(code);
 VM.input_stack = [10, 2];

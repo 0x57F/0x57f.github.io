@@ -1,10 +1,11 @@
 const { antlr4, Lexer, Parser, Visitor } = self.parser.default;
 
-// TODO: TEST WHILE LOOPS
-const input = `i = 1
-while i < 100
+// TODO: CONDITIONS ARE BROKEN IN THE PARSER
+const input = `i = 0
+j = 10
+do
 i = i + 1
-endwhile
+until i < 100 AND (i MOD j) != 9
 `;
 const chars = new antlr4.InputStream(input);
 const lexer = new Lexer(chars);
@@ -167,6 +168,11 @@ class MyVisitor extends Visitor {
         this.symbol_table = new SymbolTable();
     }
 
+    visitProgram(ctx) {
+        this.visitChildren(ctx);
+        assembly += `HLT\n`;
+    }
+
     visitStat(ctx) {
         //console.log("stat");
         //console.log(ctx.stat_identifier);
@@ -241,7 +247,14 @@ class MyVisitor extends Visitor {
             if (mid_operand == 'AND') {
                 // TODO:
                 // return true if the results are both true
-                assembly += ``
+                assembly += `\nLDA ${left_operand}\n` +
+                            `BRZ ${output_label}_false\n` +
+                            `LDA ${right_operand}\n` +
+                            `BRZ ${output_label}_false\n` +
+                            `LDA ${one}\n` +
+                            `BRA ${output_label}_end\n` +
+                            `LDA ${zero}\n` +
+                            `${output_label}_end STA ${output_label}\n\n`;
             }
             else if (mid_operand == 'OR') {
                 assembly +=
@@ -305,6 +318,7 @@ class MyVisitor extends Visitor {
         let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
 
         assembly += `LDA ${left_operand}\n`
+        // TODO: NEEDS UPDATING - INCONSISTENT
         switch (ctx.children[1].symbol.type) {
             case Lexer.PLUS:
                 assembly += `ADD ${right_operand}\n`;
@@ -646,6 +660,36 @@ class MyVisitor extends Visitor {
         assembly += `BRA loop_${loop_id}_start\n` +
             `loop_${loop_id}_end NOP\n`;
         return;
+    }
+
+    visitDo_while(ctx) {
+        if (ctx.children.length < 4) return;
+        if (ctx == undefined) return;
+
+        let loop_id = this.loop_id++;
+
+        assembly += `loop_${loop_id}_start NOP\n`;
+        // While Body
+        ctx.children[2].accept(this);
+
+        let while_condition = ctx.children[3].accept(this);
+        assembly += `LDA ${while_condition}\n` +
+                    `BRZ loop_${loop_id}_end\n` +
+                    `BRA loop_${loop_id}_start\n` +
+                    `loop_${loop_id}_end NOP\n`;
+
+        return;
+    }
+
+    visitDo_end(ctx) {
+        if (ctx.children.length < 3) return;
+        if (ctx == undefined) return;
+
+        ctx.children[1].accept(this);
+    }
+
+    visitIf(ctx) {
+        
     }
 
     visitTerminal(ctx) {
