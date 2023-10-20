@@ -1,0 +1,29 @@
+ LDA literal_0
+STA identifier_global_i
+
+// If Start
+
+// Comparison
+LDA literal_10
+SUB identifier_global_i
+BRP temp_calc_0_false
+LDA literal_1
+BRA temp_calc_0_end
+temp_calc_0_false LDA literal_0
+temp_calc_0_end STA temp_calc_0
+
+if_0_0 LDA temp_calc_0
+BRZ if_0_0
+LDA identifier_global_i
+SUB literal_1
+STA temp_calc_1
+LDA temp_calc_1
+STA identifier_global_i
+HLT
+identifier_global_i DAT 0
+literal_0 DAT 0
+if_0 DAT 0
+literal_10 DAT 10
+temp_calc_0 DAT 0
+literal_1 DAT 1
+temp_calc_1 DAT 0

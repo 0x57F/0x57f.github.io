@@ -1,17 +1,6 @@
 const { antlr4, Lexer, Parser, Visitor } = self.parser.default;
+import VirtualMachine from './lmc_virtual_machine.js';
 
-// TODO: CONDITIONS ARE BROKEN IN THE PARSER
-const input = `i = 0
-j = 10
-do
-i = i + 1
-until i < 100 AND (i MOD j) != 9
-`;
-const chars = new antlr4.InputStream(input);
-const lexer = new Lexer(chars);
-const tokens = new antlr4.CommonTokenStream(lexer);
-const parser = new Parser(tokens);
-const tree = parser.program();
 
 const SYMBOL_TYPES = {
     VARIABLE: 0,
@@ -20,6 +9,8 @@ const SYMBOL_TYPES = {
     FUNCTION_IDENTIFIER: 3,
     POINTER: 4,
     TEMP_CALC: 5,
+    LOOP_LABEL: 6,
+    IF_LABEL: 7,
 }
 
 class SymbolTable {
@@ -27,6 +18,8 @@ class SymbolTable {
         this.table = {};
         this.scope_prefix = "global_"
         this.temp_calc_id = 0;
+        this.loop_id = 0;
+        this.if_id = 0;
     }
 
     add_symbol(name, type, starting_value) {
@@ -61,6 +54,7 @@ class SymbolTable {
         }
     }
 
+    // TODO: make stuff use this.
     generate_label(name, type) {
         switch (type) {
             case SYMBOL_TYPES.INTEGER_LITERAL:
@@ -80,6 +74,12 @@ class SymbolTable {
 
             case SYMBOL_TYPES.TEMP_CALC:
                 return `temp_calc_${this.temp_calc_id++}`;
+
+            case SYMBOL_TYPES.LOOP_LABEL:
+                return `loop_${this.loop_id++}`;
+
+            case SYMBOL_TYPES.IF_LABEL:
+                return `if_${this.if_id++}`;
 
             default:
                 return `${this.scope_prefix}unknown_${name}`;
@@ -141,9 +141,9 @@ class Symbol {
     }
 }
 
-//console.log(tree);
 // A table for holding symbols - defining when they are created. This is a top level one, it should contain other sub-tables for functions and scopes. To be sorted out later
 
+// TODO: Big refactor to get rid of these variables
 let assembly = "";
 let current_scope_prefix = "global";
 let string_count = 0;
@@ -235,7 +235,8 @@ class MyVisitor extends Visitor {
 
         if (left_operand == 'NOT') {
             assembly +=
-                `LDA ${left_operand}\n` +
+                `\n// NOT for ${mid_operand}\n` +
+                `LDA ${mid_operand}\n` +
                 `BRP ${output_label}_false\n` +
                 `LDA ${one}\n` +
                 `BRA ${output_label}_end\n` +
@@ -247,17 +248,20 @@ class MyVisitor extends Visitor {
             if (mid_operand == 'AND') {
                 // TODO:
                 // return true if the results are both true
-                assembly += `\nLDA ${left_operand}\n` +
-                            `BRZ ${output_label}_false\n` +
-                            `LDA ${right_operand}\n` +
-                            `BRZ ${output_label}_false\n` +
-                            `LDA ${one}\n` +
-                            `BRA ${output_label}_end\n` +
-                            `LDA ${zero}\n` +
-                            `${output_label}_end STA ${output_label}\n\n`;
+                assembly +=
+                    `\n// AND for ${left_operand} and ${right_operand}\n` +
+                    `LDA ${left_operand}\n` +
+                    `BRZ ${output_label}_false\n` +
+                    `LDA ${right_operand}\n` +
+                    `BRZ ${output_label}_false\n` +
+                    `LDA ${one}\n` +
+                    `BRA ${output_label}_end\n` +
+                    `LDA ${zero}\n` +
+                    `${output_label}_end STA ${output_label}\n\n`;
             }
             else if (mid_operand == 'OR') {
                 assembly +=
+                    `\n// OR for ${left_operand} and ${right_operand}\n` +
                     `LDA ${left_operand}\n` +
                     `ADD ${right_operand}\n` +
                     `BRZ ${output_label}_false\n` +
@@ -273,7 +277,6 @@ class MyVisitor extends Visitor {
     visitLiteral(ctx) {
         if (ctx == undefined) return;
         let children_read_value = this.visitChildren(ctx).toString();
-        console.log(children_read_value);
         let literal_name;
 
         // If ctx.name exists then we got a literal
@@ -282,8 +285,6 @@ class MyVisitor extends Visitor {
         }
 
         // switch on the value of the only child
-        // NOTE: There was a bug when trying to get an identifier out of this, tried to resolve with a parameter name - see git snapshot
-        // This was caused by an unthought of way to get to a variable name
         switch (ctx.children[0].symbol.type) {
             case Lexer.INT:
                 literal_name = this.symbol_table.generate_symbol(children_read_value, SYMBOL_TYPES.INTEGER_LITERAL);
@@ -355,9 +356,9 @@ class MyVisitor extends Visitor {
                 // copy the right operand to avoid mutation
                 let right_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
                 assembly +=
+                    `\n// Multiplying ${left_operand} ${right_operand}\n` +
                     `LDA ${right_operand}\n` +
                     `STA ${right_operand_temp}\n` +
-
                     `${loop_label}_start LDA ${total_label}\n` +
                     `ADD ${left_operand}\n` +
                     `STA ${total_label}\n` +
@@ -370,9 +371,9 @@ class MyVisitor extends Visitor {
                 break;
 
             case Lexer.DIV:
-                // TODO: optimise assembly
                 let left_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
                 assembly +=
+                    `\n// DIV for ${left_operand} and ${right_operand}\n` +
                     `LDA ${left_operand}\n` +
                     `STA ${left_operand_temp}\n` +
                     `${loop_label}_start LDA ${left_operand_temp}\n` +
@@ -414,7 +415,9 @@ class MyVisitor extends Visitor {
 
         switch (ctx.children[1].symbol.type) {
             case Lexer.MODKW:
-                assembly += `${loop_label}_start LDA ${left_operand_temp}\n` +
+                assembly +=
+                    `\n// MOD for ${left_operand} and ${right_operand}\n` +
+                    `${loop_label}_start LDA ${left_operand_temp}\n` +
                     `SUB ${right_operand}\n` +
                     `STA ${left_operand_temp}\n` +
                     `LDA ${total_label}\n` +
@@ -427,7 +430,9 @@ class MyVisitor extends Visitor {
                 break;
 
             case Lexer.DIVKW:
-                assembly += `${loop_label}_start LDA ${left_operand_temp}\n` +
+                assembly +=
+                    `\n// DIV for ${left_operand} and ${right_operand}\n` +
+                    `${loop_label}_start LDA ${left_operand_temp}\n` +
                     `SUB ${right_operand}\n` +
                     `STA ${left_operand_temp}\n` +
                     `LDA ${total_label}\n` +
@@ -472,12 +477,9 @@ class MyVisitor extends Visitor {
 
         assembly += '\n';
         switch (ctx.children[1].symbol.type) {
-            // NOTE: This piece of code was messing with literals. this is a problem, because when other programs decide to use those literals, they are not the value they should be
-            // NOTE: This also decided not to work again due to a faulty algorithm, commiting to save it
-
-            // WORKING NOW
             case Lexer.POW:
                 assembly +=
+                    `\n// POW for ${left_operand} and ${right_operand}\n` +
                     // For explanation of pseudocode, see flowchart "LMC POW.drawio"
                     `LDA ${left_operand_temp}\n` +
                     `STA ${left_operand_copy}\n` +
@@ -539,12 +541,14 @@ class MyVisitor extends Visitor {
         let zero = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
         let one = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
         //console.log(ctx.children[1].accept(this));
+        assembly += `\n// Comparison\n`
         switch (ctx.children[1].accept(this)) {
             case '<':
                 // A < B
                 // IF A - B - 1 is negative
                 // NOTE: tested with 4 and 20 < 10
-                assembly += `LDA ${left_label}\n` +
+                assembly +=
+                    `LDA ${left_label}\n` +
                     `SUB ${right_label}\n` +
                     `BRP ${result_label}_true\n` +
                     `LDA ${zero}\n` +
@@ -557,7 +561,8 @@ class MyVisitor extends Visitor {
                 // B < A
                 // IF B - A - 1 is negative
                 // NOTE: Tested with 10>4, 4 > 10, 4>4
-                assembly += `LDA ${right_label}\n` +
+                assembly +=
+                    `LDA ${right_label}\n` +
                     `SUB ${left_label}\n` +
                     `BRP ${result_label}_false\n` +
                     `LDA ${one}\n` +
@@ -570,7 +575,8 @@ class MyVisitor extends Visitor {
                 // B == A
                 // IF B - A is zero 
                 // NOTE: Tested with 10 == 10, 4==4
-                assembly += `LDA ${right_label}\n` +
+                assembly +=
+                    `LDA ${right_label}\n` +
                     `SUB ${left_label}\n` +
                     `BRZ ${result_label}_true\n` +
                     `LDA ${zero}\n` +
@@ -583,7 +589,8 @@ class MyVisitor extends Visitor {
                 // B >= A
                 // IF B - A is positive 
                 // NOTE: TESTED WITH 10 >= 4, 4 >= 10, 10 >= 10
-                assembly += `LDA ${left_label}\n` +
+                assembly +=
+                    `LDA ${left_label}\n` +
                     `SUB ${right_label}\n` +
                     `BRP ${result_label}_true\n` +
                     `LDA ${zero}\n` +
@@ -596,7 +603,8 @@ class MyVisitor extends Visitor {
                 // B <= A
                 // IF A - B is positive 
                 // NOTE: TESTED WITH 4 <= 10, 10 <= 4, 10 <= 10
-                assembly += `LDA ${right_label}\n` +
+                assembly +=
+                    `LDA ${right_label}\n` +
                     `SUB ${left_label}\n` +
                     `BRP ${result_label}_true\n` +
                     `LDA ${zero}\n` +
@@ -609,7 +617,8 @@ class MyVisitor extends Visitor {
                 // B != A
                 // IF A - B is not zero 
                 // NOTE: Tested with 4 != 10, and 10 != 10
-                assembly += `LDA ${left_label}\n` +
+                assembly +=
+                    `LDA ${left_label}\n` +
                     `SUB ${right_label}\n` +
                     `BRZ ${result_label}_false\n` +
                     `LDA ${one}\n` +
@@ -651,13 +660,16 @@ class MyVisitor extends Visitor {
         let loop_id = this.loop_id++;
 
         // set a starting label, and do some loopy stuff
-        assembly += `loop_${loop_id}_start NOP\n`;
+        assembly += `\n// While loop condition\nloop_${loop_id}_start NOP\n`;
         let while_condition = ctx.children[0].accept(this);
         assembly += `BRZ loop_${loop_id}_end\n`;
 
+        assembly += `\n// While loop Body\n`;
         ctx.children[1].accept(this);
 
-        assembly += `BRA loop_${loop_id}_start\n` +
+        assembly +=
+            `\n// While loop end\n`;
+        `BRA loop_${loop_id}_start\n` +
             `loop_${loop_id}_end NOP\n`;
         return;
     }
@@ -668,15 +680,17 @@ class MyVisitor extends Visitor {
 
         let loop_id = this.loop_id++;
 
-        assembly += `loop_${loop_id}_start NOP\n`;
-        // While Body
+        assembly += `\n// Do Until loop start\nloop_${loop_id}_start NOP\n`;
+        assembly += `\n// Do Until Body\n`;
         ctx.children[2].accept(this);
 
+        assembly += `\n// Do-Until loop condiiton\n`
         let while_condition = ctx.children[3].accept(this);
-        assembly += `LDA ${while_condition}\n` +
-                    `BRZ loop_${loop_id}_end\n` +
-                    `BRA loop_${loop_id}_start\n` +
-                    `loop_${loop_id}_end NOP\n`;
+        assembly +=
+            `\n// Do-Until loop end\n` +
+            `LDA ${while_condition}\n` +
+            `BRZ loop_${loop_id}_start\n` +
+            `loop_${loop_id}_end NOP\n`;
 
         return;
     }
@@ -685,21 +699,85 @@ class MyVisitor extends Visitor {
         if (ctx.children.length < 3) return;
         if (ctx == undefined) return;
 
-        ctx.children[1].accept(this);
+        return ctx.children[1].accept(this);
     }
 
     visitIf(ctx) {
-        
+        assembly += `\n// If Start\n`
+        let if_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.IF_LABEL);
+        let number_of_branches = ctx.children.length / 2 - 1;
+
+        let else_found = false;
+
+        let i;
+        for (i = 0; i < number_of_branches; i++) {
+            let condition_label = ctx.children[i * 2].accept(this);
+            if (condition_label !== 0) {
+                assembly +=
+                    `\n// If Branch\n` +
+                    `${if_label}_${i} NOP\n` +
+                    `LDA ${condition_label}\n` +
+                    `BRZ ${if_label}_${i + 1}\n`;
+            } else {
+                assembly += `\n// If End\n` +
+                            `${if_label}_${i} NOP\n`;
+                else_found = true;
+            }
+
+            ctx.children[i * 2 + 1].accept(this);
+        }
+
+        if (!else_found) assembly += `${if_label}_${i} NOP\n`;
     }
 
+    visitIf_start(ctx) {
+        if (ctx.children.length < 4) return;
+        if (ctx == undefined) return;
+
+        return ctx.children[1].accept(this);
+    }
+
+    visitIf_continuation(ctx) {
+        if (ctx.children.length < 4) return;
+        if (ctx == undefined) return;
+
+        return ctx.children[1].accept(this);
+    }
+
+    visitIf_final(ctx) {
+        if (ctx.children.length < 2) return;
+        if (ctx == undefined) return;
+
+        return 0;
+    }
     visitTerminal(ctx) {
         return ctx.symbol.text;
     }
 }
 
+const input = `i = 0
+if i > 10 then
+    i = i + 1
+elseif i < 10 then
+    i = i - 2
+else
+    i = 0
+endif
+`;
+
+const chars = new antlr4.InputStream(input);
+const lexer = new Lexer(chars);
+const tokens = new antlr4.CommonTokenStream(lexer);
+const parser = new Parser(tokens);
+const tree = parser.program();
+
 let visitor = new MyVisitor();
 tree.accept(visitor);
 
 assembly = visitor.symbol_table.generate_code(assembly);
-console.log(visitor.symbol_table.table);
 console.log(assembly);
+
+let vm = new VirtualMachine.VirtualMachine(assembly)
+console.log(vm);
+await vm.run();
+console.log(vm.ram);

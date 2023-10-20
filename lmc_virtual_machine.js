@@ -43,8 +43,6 @@ const TOKENS = {
 
 const KEYWORDS = Object.keys(OPCODES_TO_NUMERIC);
 
-// TODO: ADD COMMENT SUPPORT
-
 /**
  * A class representing a token. Has a type and a value
  */
@@ -68,16 +66,6 @@ class Token {
                 this.value = value;
                 break;
         }
-    }
-
-    /**
-     * conver the token to a string
-     * TODO: Potentially unused
-
-     * @returns {String} String representing the token
-     */
-    toString() {
-        return `[(${this.type}),${this.value}]`
     }
 }
 
@@ -143,8 +131,6 @@ class VirtualMachine {
         this.assemble(instructions, symbol_table);
     }
 
-    // TODO: make symbol table more prevalent
-
     /**
      * Split the string into tokens
      *
@@ -160,7 +146,14 @@ class VirtualMachine {
         lexemed_program.forEach(
             (elem, index, array) => {
                 elem = this.preprocess(elem);
-                array[index] = elem.split(" ");
+                elem = elem.split(" ");
+
+                let comment_index = elem.findIndex(item => item.match(/\/\/\w*/))
+
+                if (comment_index != -1) {
+                    array[index] = elem.slice(0, comment_index);
+                }
+                else array[index] = elem;
                 array[index].push("\n");
             }
         );
@@ -270,8 +263,6 @@ class VirtualMachine {
      * @throws {Error} - If a label has not been found, panic
      */
     assemble(instructions, symbol_table) {
-        // TODO: make into more functions for readability?
-
         // expand on the labels, and conver everything to it's numeric value
         for (let instruction_index in instructions) {
             let instruction = instructions[instruction_index];
@@ -294,16 +285,16 @@ class VirtualMachine {
      * @returns {String} the processed string
      */
     preprocess(text) {
-        // NOTTODO: clear trailing + leading spaces, clear lines with only a space
-        // TODO: make responsibilty more clear
         text = text.replaceAll('\t', ' ');
         let output = "";
+        // flatten spaces
         for (let i in text) {
             if (i != 0)
                 output = output.concat((text[i - 1] == ' ' && text[i] == ' ') ? "" : text[i]);
             else
                 output = output.concat(text[i]);
         }
+        
         return output;
     }
 
@@ -420,6 +411,7 @@ class VirtualMachine {
      *
      */
     async run() {
+        console.log("Running");
         const delay = ms => new Promise(res => setTimeout(res, ms));
         this.pc = 0;
         let done = false;
@@ -431,96 +423,4 @@ class VirtualMachine {
     }
 }
 
-let code = `LDA literal_0
-STA identifier_global_i
-LDA literal_10
-STA identifier_global_j
-loop_NaN_start NOP
-LDA identifier_global_i
-ADD literal_1
-STA temp_calc_0
-LDA temp_calc_0
-STA identifier_global_i
-loop_0_start NOP
-LDA identifier_global_i
-SUB literal_100
-BRP temp_calc_1_true
-LDA literal_0
-BRA temp_calc_1_end
-temp_calc_1_true LDA literal_1
-temp_calc_1_end STA temp_calc_1
-LDA identifier_global_i
-STA temp_calc_4
-loop_1_start LDA temp_calc_4
-SUB identifier_global_j
-STA temp_calc_4
-LDA temp_calc_3
-ADD literal_1
-STA temp_calc_3
-LDA temp_calc_4
-BRP loop_1_start
-loop_1_end ADD identifier_global_j
-STA temp_calc_3
-LDA temp_calc_3
-SUB literal_9
-BRZ temp_calc_5_false
-LDA literal_1
-BRA temp_calc_5_end
-temp_calc_5_false LDA literal_0
-temp_calc_5_end STA temp_calc_5
-LDA identifier_global_i
-SUB literal_100
-BRP temp_calc_6_true
-LDA literal_0
-BRA temp_calc_6_end
-temp_calc_6_true LDA literal_1
-temp_calc_6_end STA temp_calc_6
-LDA identifier_global_i
-STA temp_calc_8
-loop_2_start LDA temp_calc_8
-SUB identifier_global_j
-STA temp_calc_8
-LDA temp_calc_7
-ADD literal_1
-STA temp_calc_7
-LDA temp_calc_8
-BRP loop_2_start
-loop_2_end ADD identifier_global_j
-STA temp_calc_7
-LDA temp_calc_7
-SUB literal_9
-BRZ temp_calc_9_false
-LDA literal_1
-BRA temp_calc_9_end
-temp_calc_9_false LDA literal_0
-temp_calc_9_end STA temp_calc_9
-BRZ loop_0_end
-BRA loop_0_start
-loop_0_end NOP
-LDA do
-BRZ loop_NaN_end
-BRA loop_NaN_start
-loop_NaN_end NOP
-HLT
-identifier_global_i DAT 0
-literal_0 DAT 0
-identifier_global_j DAT 0
-literal_10 DAT 10
-literal_1 DAT 1
-temp_calc_0 DAT 0
-literal_100 DAT 100
-temp_calc_1 DAT 0
-temp_calc_2 DAT 0
-temp_calc_3 DAT 0
-temp_calc_4 DAT 0
-literal_9 DAT 9
-temp_calc_5 DAT 0
-temp_calc_6 DAT 0
-temp_calc_7 DAT 0
-temp_calc_8 DAT 0
-temp_calc_9 DAT 0`
-
-let VM = new VirtualMachine(code);
-VM.input_stack = [10, 2];
-await VM.run();
-console.log(VM.ram);
+export default { VirtualMachine };
