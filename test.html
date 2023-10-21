@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+    <style>
+        /* 2 divs positioned in opposite halves of the screen */
+        .class1 {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            /*background-color: red;*/
+            border: solid;
+            width: 50%;
+            height: 100%;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .class2 {
+            position: absolute;
+            right: 0;
+            top: 0;
+            background-color: blue;
+            width: 50%;
+            height: 100%;
+        }
+
+        .horiz1 {
+            position: relative;
+            height: 50%;
+        }
+
+        .memory {
+            position: absolute;
+            width: 80%;
+            height: 100%;
+
+            background-color: red;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .io {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 15%;
+            height: 100%;
+            background-color: green;
+        }
+        
+        .horiz2 {
+            position: relative;
+            height: 50%;
+        }
+
+        .register {
+            position: absolute;
+            width: 50%;
+            height: 100%;
+            background-color: indigo;
+        }
+
+        .stack {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 50%;
+            height: 50%;
+            background-color: violet;
+        }
+
+        .controls {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            width: 50%;
+            height: 50%;
+            background-color: orange;
+        }
+    </style>
+
+    <script>
+        function populate_class_with_lmc(div_element) {
+            div_element.innerHTML = ``;
+            for (let i=0; i < 1000; i++) {
+                div_element.innerHTML += `<label style="border: solid; margin: 1px; width: 5%; height: 20px; display:inline-block"> ${i} </label>`;
+            }
+        }
+
+    </script>
+<title>
+    TESTING
+</title>
+<body>
+    <!--
+    <div class="class1">
+    </div>
+
+    <div class="class2">
+    </div>
+    -->
+
+    <div class="class1">
+        <div class="horiz1">
+            <div class="memory">
+                memory
+            </div>
+            <div class="io">
+                io
+            </div>
+        </div>
+        <div class="horiz2">
+            <div class="register">
+                register
+            </div>
+            <div class="stack">
+                stack
+            </div>
+            <div class="controls">
+                controls
+            </div>
+        </div>
+    </div>
+    <script>
+        //populate_class_with_lmc( document.getElementsByClassName("class1")[0] );
+    </script>
+</html>
+</!DOCTYPE html>
