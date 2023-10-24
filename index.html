@@ -3,7 +3,7 @@
 
 <head>
     <title>Compilers and Little Man Computing</title>
-    <style type="text/css" media="screen">
+    <!--<style type="text/css" media="screen">
         #editor {
             position: absolute;
             top: 0.5vw;
@@ -35,12 +35,13 @@
             width: 13%;
             font-size: 2vh;
         }
-    </style>
+    </style>!-->
+    <link rel="stylesheet" href="stylesheet.css">
 </head>
 
 <body>
 
-    <div id="editor"># Enter Your Code Here!
+    <!--<div id="editor"># Enter Your Code Here!
         e.g.
         for i = 0 to 7
         print(i)
@@ -51,13 +52,18 @@
         var editor = ace.edit("editor");
         editor.session.setMode("ace/mode/python");
     </script>
+    <button id="compile_button">Compile</button>
+    <button id="settings_button">Settings</button>
+    -->
+
+    <div class="class1">
+    </div>
 
     <script src="lmc_virtual_machine.js" type="module"></script>
     <script src="lib/parser.js" type="module"></script>
-    <script src="compiler.js" type="module"></script>
+    <script src="compiler.js" type="module"> </script>
 
-    <button id="compile_button">Compile</button>
-    <button id="settings_button">Settings</button>
+    <script type="module" src="website_functionality.js"></script>
 </body>
 
 </html>

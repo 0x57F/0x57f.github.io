@@ -148,7 +148,7 @@ let assembly = "";
 let current_scope_prefix = "global";
 let string_count = 0;
 
-class MyVisitor extends Visitor {
+class Compiler extends Visitor {
 
     constructor() {
         super();
@@ -771,7 +771,7 @@ const tokens = new antlr4.CommonTokenStream(lexer);
 const parser = new Parser(tokens);
 const tree = parser.program();
 
-let visitor = new MyVisitor();
+let visitor = new Compiler();
 tree.accept(visitor);
 
 assembly = visitor.symbol_table.generate_code(assembly);
@@ -781,3 +781,5 @@ let vm = new VirtualMachine.VirtualMachine(assembly)
 console.log(vm);
 await vm.run();
 console.log(vm.ram);
+
+export default { Compiler };
