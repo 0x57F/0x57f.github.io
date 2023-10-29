@@ -411,8 +411,7 @@ class VirtualMachine {
      *
      */
     async run() {
-        console.log("Running");
-        const delay = ms => new Promise(res => setTimeout(res, ms));
+        console.warn("This method is designed to be a development method, using it in a real life scenario will result in the visualiser breaking");
         this.pc = 0;
         let done = false;
 
@@ -420,6 +419,22 @@ class VirtualMachine {
             // await delay(100);
             done = this.step();
         }
+    }
+
+
+    snapshot() {
+        return {
+            ram: this.ram,
+            registers: {accumulator: this.accumulator, pc: this.pc},
+            stack: this.stack
+        }
+    }
+
+    restore(snapshot) {
+        this.ram = snapshot.ram;
+        this.stack = snapshot.stack;
+        this.pc = snapshot.register.pc;
+        this.accumulator= snapshot.register.accumulator;
     }
 }
 

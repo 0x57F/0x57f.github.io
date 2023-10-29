@@ -13,6 +13,7 @@ LDA literal_1
 BRA temp_calc_0_end
 temp_calc_0_false LDA literal_0
 temp_calc_0_end STA temp_calc_0
+PSH
 
 // If Branch
 if_0_0 NOP
@@ -23,6 +24,7 @@ ADD literal_1
 STA temp_calc_1
 LDA temp_calc_1
 STA identifier_global_i
+PSH
 
 // Comparison
 LDA identifier_global_i
@@ -32,6 +34,7 @@ LDA literal_0
 BRA temp_calc_2_end
 temp_calc_2_true LDA literal_1
 temp_calc_2_end STA temp_calc_2
+PSH
 
 // If Branch
 if_0_1 NOP
@@ -42,11 +45,13 @@ SUB literal_2
 STA temp_calc_3
 LDA temp_calc_3
 STA identifier_global_i
+PSH
 
 // If End
 if_0_2 NOP
 LDA literal_0
 STA identifier_global_i
+PSH
 HLT
 identifier_global_i DAT 0
 literal_0 DAT 0
@@ -59,8 +64,6 @@ temp_calc_2 DAT 0
 literal_2 DAT 2
 temp_calc_3 DAT 0`;
 
-
-let vm = new VirtualMachine.VirtualMachine(assembly);
 
 class LMC_Visualiser {
     constructor(parent_div, virtual_machine) {
@@ -84,11 +87,11 @@ class LMC_Visualiser {
             </div>
             <div class="stack">
                 <h4>Stack</h4>
-                <div class="stack view"></div>
+                <p class="stack_view"></p>
             </div>
             <div class="controls">
                 <h4>Program Controls</h4>
-                <button id="start">⏮️</button> <button id="back">◀️</button> <button id="stopstart">⏯️</button> <button id="step">▶️</button> <button id="end">⏭️</button>
+                <button id="start" onClick="">⏮️</button> <button id="back">◀️</button> <button id="stopstart">⏯️</button> <button id="step">▶️</button> <button id="end">⏭️</button>
             </div>
         </div>`
 
@@ -96,10 +99,15 @@ class LMC_Visualiser {
         this.virtual_machine = virtual_machine;
         this.memory_size = 200;
         this.displayed_memory = 0;
+        this.vm_states = [];
+        this.vm_index = 0; 
+
+        this.vm_states.push(this.virtual_machine.snapshot());
     }
 
-    async init() {
+    init() {
         this.init_memory();
+        this.init_buttons();
     }
     // This takes a while, so make it async to allow multiple things to happen at once
     init_memory() {
@@ -112,6 +120,11 @@ class LMC_Visualiser {
         div_element.innerHTML = html_to_update;
     }
 
+    init_buttons() {
+        console.log(visualiser);
+        document.getElementById("start").onclick = this.step_vm.bind(this);
+    }
+
     show_memory() {
         let memory_cells = this.parent_div.getElementsByClassName("memorycell");
         for (let i = 0; i < this.virtual_machine.ram.length; i++) {
@@ -120,19 +133,31 @@ class LMC_Visualiser {
     }
 
     show_registers() {
-        this.parent_div.getElementsByClassName("pc_label")[0].innerhtml = this.virtual_machine.pc;
-        this.parent_div.getElementsByClassName("acc_label")[0].innerhtml = this.virtual_machine.accumulator;
+        this.parent_div.getElementsByClassName("pc_label")[0].innerHTML = this.virtual_machine.pc;
+        this.parent_div.getElementsByClassName("acc_label")[0].innerHTML = this.virtual_machine.accumulator;
     }
 
     show_stack() {
-        this.parent_div.getelementsbyclassname("pc_label")[0].innerhtml = this.virtual_machine.pc;
+        this.parent_div.getElementsByClassName("stack_view")[0].innerHTML = this.virtual_machine.stack.join(', ');
+    }
+
+    step_vm() {
+        console.log("this: ", this);
+        this.virtual_machine.step();
+        this.vm_states.push(this.virtual_machine.snapshot());
+        this.visualise();
+    }
+
+    visualise() {
+        this.show_memory();
+        this.show_registers();
+        this.show_stack();
     }
 }
 
-const vis = new LMC_Visualiser(document.getElementsByClassName("class1")[0], vm)
-vis.init();
-vis.show_memory();
-vis.show_registers();
-vm.run();
-vis.show_memory();
-vis.show_registers();
+let vm = new VirtualMachine.VirtualMachine(assembly);
+
+const visualiser = new LMC_Visualiser(document.getElementsByClassName("class1")[0], vm);
+
+visualiser.init(visualiser);
+visualiser.visualise();
