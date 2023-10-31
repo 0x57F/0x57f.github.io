@@ -450,8 +450,6 @@ class VirtualMachine {
      *
      */
     async run() {
-        console.warn("This method is designed to be a development method, using it in a real life scenario will result in the visualiser breaking");
-        this.pc = 0;
         let done = false;
 
         while (!done) {
