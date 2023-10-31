@@ -197,21 +197,24 @@ class VirtualMachine {
                 let token = new Token(undefined, lexeme);
 
                 switch (lexeme) {
-                    case (KEYWORDS.find(value => value == lexeme)):
-                        token.type = TOKENS.OPERATION;
-                        break;
+                case (KEYWORDS.find(value => value == lexeme)):
+                    token.type = TOKENS.OPERATION;
+                    break;
 
-                    case "\n":
-                        token.type = TOKENS.NEW_INSTRUCTION;
-                        break;
+                case "\n":
+                    token.type = TOKENS.NEW_INSTRUCTION;
+                    break;
 
-                    case !isNaN(lexeme) || lexeme:
-                        token.type = TOKENS.LABEL;
-                        break;
+                case !isNaN(lexeme) || lexeme:
+                    token.type = TOKENS.LABEL;
+                    break;
 
-                    default:
-                        token.type = TOKENS.LITERAL;
-                        token.value = Number(lexeme);
+                case "":
+                    break;
+
+                default:
+                    token.type = TOKENS.LITERAL;
+                    token.value = Number(lexeme);
                 }
                 tokens.push(token);
             }
@@ -311,7 +314,7 @@ class VirtualMachine {
      * @returns {String} the processed string
      */
     preprocess(text) {
-        text = text.replaceAll('\t', ' ');
+        text = text.replaceAll('\t', ' ').trimRight();
         let output = "";
         // flatten spaces
         for (let i in text) {

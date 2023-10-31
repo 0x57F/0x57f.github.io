@@ -74,7 +74,6 @@ temp_calc_2 DAT 0
 literal_2 DAT 2
 temp_calc_3 DAT 0`;
 
-/*
 let vm = new VirtualMachine.VirtualMachine();
 
 var editor = ace.edit("editor");
@@ -96,4 +95,4 @@ document.getElementById("assemble button").onclick = () => {
     visualiser.visualise();
 
     var Range = ace.require('ace/range').Range;
-}*/
+}
