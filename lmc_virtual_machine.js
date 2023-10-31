@@ -13,6 +13,7 @@ const OPCODES_TO_NUMERIC = {
     BRZ: 7,
     BRP: 8,
     INP: 9,
+    INPC: 9,
     OUT: 9,
     OUTC: 9,
     NOP: 9,
@@ -27,6 +28,7 @@ const OPCODES_TO_EXTRA_NUMERIC = {
     LDAPC: 3,
     LDACC: 4,
     INP: 1,
+    INPC: 4,
     OUT: 2,
     OUTC: 3,
     NOP: 999,
@@ -129,6 +131,9 @@ class VirtualMachine {
         let instructions, symbol_table;
         [instructions, symbol_table] = this.syntax_analysis(tokens);
         this.assemble(instructions, symbol_table);
+
+        this.print_command = console.log;
+        this.request_input = async () => this.input_stack.pop();
     }
 
     /**
@@ -304,7 +309,7 @@ class VirtualMachine {
      * @throws {Error} - Unhandled Instruction, used in case something goes very wrong indeed
      * @returns {Boolean} A boodlean stating wether the program is still running
      */
-    step() {
+    async step() {
         let instruction = Instruction.from_numeric(this.ram[this.pc]);
         this.pc += 1;
 
@@ -353,21 +358,27 @@ class VirtualMachine {
                 break;
 
             case OPCODES_TO_NUMERIC.INP:
+            case OPCODES_TO_NUMERIC.INPC:
             case OPCODES_TO_NUMERIC.OUT:
             case OPCODES_TO_NUMERIC.OUTC:
             case OPCODES_TO_NUMERIC.NOP:
                 switch (instruction.operand) {
                     case OPCODES_TO_EXTRA_NUMERIC.INP:
                         console.warn("Input not fully implemented, using a predetermined stack");
-                        this.accumulator = this.input_stack.pop();
+                        this.accumulator = (await this.request_input()).parseInt();
+                        break;
+
+                    case OPCODES_TO_EXTRA_NUMERIC.INPC:
+                        console.warn("Input not fully implemented, using a predetermined stack");
+                        this.accumulator = (await this.request_input()).charCodeAt(0);
                         break;
 
                     case OPCODES_TO_EXTRA_NUMERIC.OUT:
-                        console.log(this.accumulator);
+                        this.print_command(this.accumulator);
                         break;
 
                     case OPCODES_TO_EXTRA_NUMERIC.OUTC:
-                        console.log(String.fromCharCode(this.accumulator));
+                        this.print_command(String.fromCharCode(this.accumulator));
                         break;
 
                     case OPCODES_TO_EXTRA_NUMERIC.NOP:
@@ -417,7 +428,7 @@ class VirtualMachine {
 
         while (!done) {
             // await delay(100);
-            done = this.step();
+            done = await this.step();
         }
     }
 
@@ -433,8 +444,8 @@ class VirtualMachine {
     restore(snapshot) {
         this.ram = snapshot.ram;
         this.stack = snapshot.stack;
-        this.pc = snapshot.register.pc;
-        this.accumulator= snapshot.register.accumulator;
+        this.pc = snapshot.registers.pc;
+        this.accumulator= snapshot.registers.accumulator;
     }
 }
 

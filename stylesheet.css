@@ -1,10 +1,8 @@
 /* 2 divs positioned in opposite halves of the screen */
 .class1 {
-    position: fixed;
+    position: absolute;
     top: 0;
-    bottom: 0;
     left: 0;
-    right: 0;
     width: 50%;
     height: 100%;
     overflow-x: hidden;
@@ -13,9 +11,14 @@
 
 .class2 {
     position: absolute;
+    bottom: 0;
     right: 0;
-    top: 0;
     width: 50%;
+    height: 100%;
+    display: inline-block;
+}
+#editor {
+    width: 100%;
     height: 100%;
 }
 
@@ -65,6 +68,19 @@
     top: 80%;
     width: 100%;
     height: 20%;
+}
+
+.inputbox {
+    position: absolute;
+    top: 0%;
+    left: 2.5%;
+    width: 90%;
+}
+
+.inputbutton {
+    position: absolute;
+    bottom: 0%;
+    width: 100%;
 }
 
 .horiz2 {
