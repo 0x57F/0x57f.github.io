@@ -27,10 +27,12 @@ const OPCODES_TO_EXTRA_NUMERIC = {
     PSH: 2,
     LDAPC: 3,
     LDACC: 4,
+
     INP: 1,
     INPC: 4,
     OUT: 2,
     OUTC: 3,
+
     NOP: 999,
     HLT: 0,
     RET: 1
@@ -120,20 +122,35 @@ class VirtualMachine {
      *
      * @param {String} program_string - The program to compile
      */
-    constructor(program_string) {
+    constructor() {
         this.ram = [];
         this.stack = [];
         this.input_stack = [];
         this.accumulator = 0;
         this.pc = 0;
 
-        let tokens = this.lexical_analysis(program_string);
-        let instructions, symbol_table;
-        [instructions, symbol_table] = this.syntax_analysis(tokens);
-        this.assemble(instructions, symbol_table);
-
         this.print_command = console.log;
         this.request_input = async () => this.input_stack.pop();
+    }
+
+    assemble(program_string) {
+        let tokens = this.lexical_analysis(program_string);
+        console.log(tokens);
+        let instructions, symbol_table;
+        [instructions, symbol_table] = this.syntax_analysis(tokens);
+        return this.generate_code(instructions, symbol_table);
+    }
+
+    assemble_into_ram(program_string) {
+        this.ram = this.assemble(program_string);
+    }
+
+    reset_state() {
+        this.stack = [];
+        this.ram = [];
+        this.pc = 0;
+        this.accumulator = 0;
+        this.input_stack = [];
     }
 
     /**
@@ -267,7 +284,9 @@ class VirtualMachine {
      * @param {Object} symbol_table - Contains the keys and locations of all labels
      * @throws {Error} - If a label has not been found, panic
      */
-    assemble(instructions, symbol_table) {
+    generate_code(instructions, symbol_table) {
+        let ram = [];
+        
         // expand on the labels, and conver everything to it's numeric value
         for (let instruction_index in instructions) {
             let instruction = instructions[instruction_index];
@@ -279,8 +298,10 @@ class VirtualMachine {
                 throw new Error(`Undefined symbol: ${instruction.operand}`)
             }
 
-            this.ram[instruction_index] = instruction.to_numeric();
+            ram[instruction_index] = instruction.to_numeric();
         }
+
+        return ram;
     }
 
     /**
@@ -365,7 +386,8 @@ class VirtualMachine {
                 switch (instruction.operand) {
                     case OPCODES_TO_EXTRA_NUMERIC.INP:
                         console.warn("Input not fully implemented, using a predetermined stack");
-                        this.accumulator = (await this.request_input()).parseInt();
+                        let input = await this.request_input()
+                        this.accumulator = parseInt(input);
                         break;
 
                     case OPCODES_TO_EXTRA_NUMERIC.INPC:
@@ -384,6 +406,9 @@ class VirtualMachine {
                     case OPCODES_TO_EXTRA_NUMERIC.NOP:
                         break;
 
+                    default:
+                        console.error("Unrecognised instruction", instruction);
+                        return false;
                 }
                 break;
 
@@ -448,5 +473,31 @@ class VirtualMachine {
         this.accumulator= snapshot.registers.accumulator;
     }
 }
+
+let vm = new VirtualMachine();
+vm.reset_state();
+vm.input_stack = [123, 123];
+vm.assemble_into_ram(`        INP
+        STA NUM1
+        INP 
+        STA NUM2
+LOOP    LDA TOTAL
+        ADD NUM1
+        STA TOTAL
+        LDA NUM2
+        SUB ONE
+        STA NUM2
+        BRP LOOP
+        LDA TOTAL
+        SUB NUM1
+        STA TOTAL
+        OUT
+        HLT
+NUM1    DAT
+NUM2    DAT
+ONE     DAT 1
+TOTAL   DAT 0`);
+
+console.log(vm.ram);
 
 export default { VirtualMachine };

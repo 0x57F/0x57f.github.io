@@ -1,78 +1,5 @@
-import VirtualMachine from "./lmc_virtual_machine.js";
-
-const assembly = `LDA literal_0
-STA identifier_global_i
-OUT
-// If Start
-INPC
-OUT
-// Comparison
-LDA literal_10
-SUB identifier_global_i
-BRP temp_calc_0_false
-LDA literal_1
-BRA temp_calc_0_end
-temp_calc_0_false LDA literal_0
-temp_calc_0_end STA temp_calc_0
-PSH
-
-OUT
-// If Branch
-if_0_0 NOP
-LDA temp_calc_0
-BRZ if_0_1
-LDA identifier_global_i
-ADD literal_1
-STA temp_calc_1
-LDA temp_calc_1
-STA identifier_global_i
-PSH
-OUT
-
-// Comparison
-LDA identifier_global_i
-SUB literal_10
-BRP temp_calc_2_true
-LDA literal_0
-BRA temp_calc_2_end
-temp_calc_2_true LDA literal_1
-temp_calc_2_end STA temp_calc_2
-PSH
-OUT
-
-// If Branch
-if_0_1 NOP
-LDA temp_calc_2
-BRZ if_0_2
-LDA identifier_global_i
-SUB literal_2
-STA temp_calc_3
-LDA temp_calc_3
-STA identifier_global_i
-PSH
-OUT
-
-// If End
-if_0_2 NOP
-LDA literal_0
-STA identifier_global_i
-PSH
-OUT
-HLT
-identifier_global_i DAT 0
-literal_0 DAT 0
-if_0 DAT 0
-literal_10 DAT 10
-temp_calc_0 DAT 0
-literal_1 DAT 1
-temp_calc_1 DAT 0
-temp_calc_2 DAT 0
-literal_2 DAT 2
-temp_calc_3 DAT 0`;
-
-
 class LMC_Visualiser {
-    constructor(parent_div, virtual_machine) {
+    constructor(parent_div, virtual_machine, ace_editor) {
         parent_div.innerHTML =
         `<div class="horiz1">
             <div class="memory">
@@ -105,6 +32,7 @@ class LMC_Visualiser {
 
         this.parent_div = parent_div;
         this.virtual_machine = virtual_machine;
+        this.editor = ace_editor;
         this.memory_size = 200;
         this.displayed_memory = 0;
         this.vm_states = [];
@@ -124,6 +52,7 @@ class LMC_Visualiser {
         this.init_memory();
         this.init_buttons();
         this.init_io();
+        this.vm_states.push(this.virtual_machine.snapshot());
     }
     // This takes a while, so make it async to allow multiple things to happen at once
     init_memory() {
@@ -147,11 +76,19 @@ class LMC_Visualiser {
     init_io() {
         document.getElementsByClassName("inputbutton")[0].onclick = () => {
             this.input = this.parent_div.getElementsByClassName("inputbox")[0].value;
-            console.log("Button pressed");
         }
     }
 
+    last_marker_id = undefined;
     show_memory() {
+        var Range = ace.require('ace/range').Range;
+        if (!this.last_marker_id) {
+            this.last_marker_id = this.editor.session.addMarker(new Range(this.virtual_machine.pc, 0, this.virtual_machine.pc, 1), "marker", "fullLine");
+        }
+        else {
+            this.editor.session.removeMarker(this.last_marker_id);
+            this.last_marker_id = this.editor.session.addMarker(new Range(this.virtual_machine.pc, 0, this.virtual_machine.pc, 1), "marker", "fullLine");
+        }
         let memory_cells = this.parent_div.getElementsByClassName("memorycell");
         for (let i = 0; i < this.virtual_machine.ram.length; i++) {
             memory_cells[i].innerHTML = this.virtual_machine.ram[i].toString().padStart(4, "0");
@@ -224,23 +161,22 @@ class LMC_Visualiser {
     async get_input() {
         this.parent_div.getElementsByClassName("inputbox")[0].style = "background-color: red;";
 
-        const delay = (delayInms) => {
-            return new Promise(resolve => setTimeout(resolve, delayInms));
-        };
+        console.log(this.input);
+        const delay = (delayInms) => {return new Promise(resolve => setTimeout(resolve, delayInms));};
+
         while (this.input == "") {
-            console.log(this.input);
             await delay(100);
             continue;
         }
         // new value to be entered into the input box.
         this.parent_div.getElementsByClassName("inputbox")[0].style = "";
-        return this.input;
+
+        let temp = this.input;
+        this.input = "";
+        console.log(this.input, temp);
+        return temp;
     }
 }
 
-let vm = new VirtualMachine.VirtualMachine(assembly);
 
-const visualiser = new LMC_Visualiser(document.getElementsByClassName("class1")[0], vm);
-
-visualiser.init(visualiser);
-visualiser.visualise();
+export default LMC_Visualiser;

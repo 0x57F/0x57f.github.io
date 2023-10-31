@@ -755,6 +755,8 @@ class Compiler extends Visitor {
     }
 }
 
+/*
+
 const input = `i = 0
 if i > 10 then
     i = i + 1
@@ -777,9 +779,12 @@ tree.accept(visitor);
 assembly = visitor.symbol_table.generate_code(assembly);
 console.log(assembly);
 
-let vm = new VirtualMachine.VirtualMachine(assembly)
-console.log(vm);
+let vm = new VirtualMachine.VirtualMachine();
+vm.reset_state();
+vm.assemble_into_ram(assembly);
 await vm.run();
 console.log(vm.ram);
+
+*/
 
 export default { Compiler };
