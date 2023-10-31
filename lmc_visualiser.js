@@ -52,7 +52,6 @@ class LMC_Visualiser {
         this.init_memory();
         this.init_buttons();
         this.init_io();
-        this.vm_states.push(this.virtual_machine.snapshot());
     }
     // This takes a while, so make it async to allow multiple things to happen at once
     init_memory() {
@@ -133,7 +132,7 @@ class LMC_Visualiser {
     }
 
     step_back_vm() {
-        //NOTE: bug here with a minus 1 instead of minus 2
+        //NOTE: was a bug here with a minus 1 instead of minus 2
         let index = this.vm_states.length - 2;
         if (index < 0) return;
 
@@ -143,6 +142,7 @@ class LMC_Visualiser {
     }
 
     restart_vm() {
+        if (this.vm_states.length == 0) return;
         this.virtual_machine.restore(this.vm_states[0]);
         this.vm_states = [];
         this.visualise();
