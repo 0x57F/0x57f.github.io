@@ -4,12 +4,10 @@ const { antlr4, Lexer, Parser, Visitor } = self.parser.default;
 const SYMBOL_TYPES = {
     VARIABLE: 0,
     INTEGER_LITERAL: 1,
-    STRING_LITERAL: 2,
-    FUNCTION_IDENTIFIER: 3,
-    POINTER: 4,
-    TEMP_CALC: 5,
-    LOOP_LABEL: 6,
-    IF_LABEL: 7,
+    FUNCTION_IDENTIFIER: 2,
+    TEMP_CALC: 3,
+    LOOP_LABEL: 4,
+    IF_LABEL: 5,
 }
 
 class SymbolTable {
@@ -17,33 +15,26 @@ class SymbolTable {
         this.table = {};
         this.scope_prefix = "global_";
         this.temp_calc_id = 0;
-        this.loop_id = 0;
-        this.if_id = 0;
 
         this.parent = parent;
+    }
+
+    static loop_id = 0;
+    static if_id = 0;
+
+    init_from_parent(parent) {
+        this.if_id;
     }
 
     add_symbol(name, type, starting_value) {
         console.log(name, type, starting_value);
         switch (type) {
             case SYMBOL_TYPES.INTEGER_LITERAL:
-                if (!this.already_exists(name)) {
-                    // Add it to the symbol table with the read default value
-                    this.table[name] = new Symbol(name, SYMBOL_TYPES.INTEGER_LITERAL, starting_value);
-                }
-                break;
-
             case SYMBOL_TYPES.STRING_LITERAL:
-                if (!this.already_exists(name)) {
-                    // Add it to the symbol table with the read default value
-                    this.table[name] = new Symbol(name, SYMBOL_TYPES.STRING_LITERAL, starting_value);
-                }
-                break;
-
             case SYMBOL_TYPES.TEMP_CALC:
                 if (!this.already_exists(name)) {
                     // Add it to the symbol table with the read default value
-                    this.table[name] = new Symbol(name, SYMBOL_TYPES.TEMP_CALC, starting_value);
+                    this.table[name] = new Symbol(name, type, starting_value);
                 }
                 break;
 
@@ -55,35 +46,39 @@ class SymbolTable {
         }
     }
 
+    find_symbol(name) {
+        for (let key in this.table) {
+            if (name == key) {
+                return this.table[name];
+            }
+        }
+        if (this.parent) this.parent.find_symbol();
+        else return undefined;
+    }
+
     // TODO: make stuff use this.
     generate_label(name, type) {
         switch (type) {
             case SYMBOL_TYPES.INTEGER_LITERAL:
                 return `literal_${name}`;
 
-            case SYMBOL_TYPES.STRING_LITERAL:
-                return `string_${string_count++}`;
-
-            case SYMBOL_TYPES.POINTER:
-                return `${this.scope_prefix}pointer_${name}`;
-
             case SYMBOL_TYPES.FUNCTION_IDENTIFIER:
-                return `${this.scope_prefix}func_${name}`;
+                return `func_${name}`;
 
             case SYMBOL_TYPES.VARIABLE:
-                return `${this.scope_prefix}identifier_${name}`;
+                return `var_${name}`;
 
             case SYMBOL_TYPES.TEMP_CALC:
-                return `temp_calc_${this.temp_calc_id++}`;
+                return `temp_${temp_calc_id++}`;
 
             case SYMBOL_TYPES.LOOP_LABEL:
-                return `loop_${this.loop_id++}`;
+                return `loop_${loop_id++}`;
 
             case SYMBOL_TYPES.IF_LABEL:
-                return `if_${this.if_id++}`;
+                return `if_${if_id++}`;
 
             default:
-                return `${this.scope_prefix}unknown_${name}`;
+                return `unknown_${name}`;
         }
     }
 
@@ -91,33 +86,23 @@ class SymbolTable {
         return Object.keys(this.table).includes(name);
     }
 
-    generate_code(assembly) {
+    generate_code() {
+        let assembly = "";
         for (let symbol in this.table) {
             switch (this.table[symbol].type) {
 
                 case SYMBOL_TYPES.INTEGER_LITERAL:
                 case SYMBOL_TYPES.TEMP_CALC:
+                    assembly += `${current_scope_prefix}_${symbol} DAT ${this.table[symbol].starting_value}\n`;
+                    break;
                 case SYMBOL_TYPES.VARIABLE:
                     //console.log(`${symbol} DAT ${this.table[symbol].starting_value}\n`);
-                    assembly += `${symbol} DAT ${this.table[symbol].starting_value}\n`;
-                    break;
-
-                // If we get a string do some other stuff
-                case SYMBOL_TYPES.STRING_LITERAL:
-                    // slap the pointer in there
-                    let string_ptr_start = (assembly.match(/\n/g) || []).length;
-                    assembly += `${symbol} DAT ${string_ptr_start}\n`;
-
-                    let c = 0;
-                    for (c in this.table[symbol].starting_value) {
-                        assembly += `${symbol}_${c} DAT ${this.table[symbol].starting_value.charCodeAt(c)}\n`;
-                    }
-                    // insert Null character at the end of the string
-                    assembly += `${symbol}_${++c} DAT 0\n`;
+                    assembly += `${current_scope_prefix}_${symbol} DAT ${this.table[symbol].starting_value}\n`;
                     break;
 
                 case SYMBOL_TYPES.FUNCTION_IDENTIFIER:
                     alert("FUNCTION IDENTIFIER NOT IMPLEMENTED");
+                    return;
             }
         }
         return assembly;
@@ -150,7 +135,6 @@ let current_scope_prefix = "global";
 let string_count = 0;
 
 class Compiler extends Visitor {
-
     constructor() {
         super();
 
@@ -165,13 +149,17 @@ class Compiler extends Visitor {
             return this._visitChildren(ctx);
         }
 
-        this.loop_id = 0;
         this.symbol_table = new SymbolTable();
+        this.symbol_table_pool = [this.symbol_table];
     }
 
     visitProgram(ctx) {
         this.visitChildren(ctx);
         assembly += `HLT\n`;
+
+        for (let table of this.symbol_table_pool) {
+            assembly += table.generate_code();
+        }
     }
 
     visitStat(ctx) {
@@ -775,7 +763,7 @@ const tree = parser.program();
 let visitor = new Compiler();
 tree.accept(visitor);
 
-assembly = visitor.symbol_table.generate_code(assembly);
+console.log(visitor.symbol_table.find_symbol("if_0"));
 console.log(assembly);
 
 
