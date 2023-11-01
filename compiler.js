@@ -1,5 +1,4 @@
 const { antlr4, Lexer, Parser, Visitor } = self.parser.default;
-import VirtualMachine from './lmc_virtual_machine.js';
 
 
 const SYMBOL_TYPES = {
@@ -14,16 +13,18 @@ const SYMBOL_TYPES = {
 }
 
 class SymbolTable {
-    constructor() {
+    constructor(parent = undefined) {
         this.table = {};
-        this.scope_prefix = "global_"
+        this.scope_prefix = "global_";
         this.temp_calc_id = 0;
         this.loop_id = 0;
         this.if_id = 0;
+
+        this.parent = parent;
     }
 
     add_symbol(name, type, starting_value) {
-        //console.log(name, type, starting_value);
+        console.log(name, type, starting_value);
         switch (type) {
             case SYMBOL_TYPES.INTEGER_LITERAL:
                 if (!this.already_exists(name)) {
@@ -755,8 +756,6 @@ class Compiler extends Visitor {
     }
 }
 
-/*
-
 const input = `i = 0
 if i > 10 then
     i = i + 1
@@ -779,12 +778,5 @@ tree.accept(visitor);
 assembly = visitor.symbol_table.generate_code(assembly);
 console.log(assembly);
 
-let vm = new VirtualMachine.VirtualMachine();
-vm.reset_state();
-vm.assemble_into_ram(assembly);
-await vm.run();
-console.log(vm.ram);
-
-*/
 
 export default { Compiler };

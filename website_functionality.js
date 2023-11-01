@@ -87,7 +87,6 @@ visualiser.visualise();
 
 document.getElementById("assemble button").onclick = () => {
     let code = editor.getValue();
-    console.log(code);
 
     vm.reset_state();
     vm.assemble_into_ram(code);

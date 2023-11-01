@@ -105,6 +105,7 @@ class Instruction {
      * @returns {Instruction} The instruction generated from number
      */
     static from_numeric(number) {
+        if (!number) return new Instruction(0, 0);
         let operand = number % 1000;
         let opcode = (number - operand) / 1000;
         return new Instruction(opcode, operand);
@@ -441,7 +442,6 @@ class VirtualMachine {
                 console.log(this.pc, this.accumulator, this.ram, this.stack);
                 throw new Error(`How on earth did you get here?`);
         }
-        // console.log(this.pc, this.accumulator, this.stack, this.ram[this.pc - 1]);
         return done;
     }
 
