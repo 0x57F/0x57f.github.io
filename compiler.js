@@ -12,15 +12,17 @@ const SYMBOL_TYPES = {
 
 // A table for holding symbols - defining when they are created. This is a top level one, it should contain other sub-tables for functions and scopes. To be sorted out later
 class SymbolTable {
-    constructor(parent = undefined) {
+    constructor(scope_prefix="global", parent = undefined) {
         this.table = {};
-        this.scope_prefix = "global";
-        this.temp_calc_id = 0;
+        this.scope_prefix = scope_prefix;
 
         this.weak_scope_labels = new Array();
         this.parent = parent;
+
+        this.sub_assemblies = [];
     }
 
+    static temp_calc_id = 0;
     static loop_id = 0;
     static if_id = 0;
 
@@ -66,7 +68,7 @@ class SymbolTable {
                 return { name: this.table[name], ctx: this };
             }
         }
-        if (this.parent) return this.parent.find_symbol_reference();
+        if (this.parent) return this.parent.find_symbol_reference(name);
         
         return { name: undefined, ctx: undefined};
     }
@@ -96,7 +98,7 @@ class SymbolTable {
                 return `var_${name}`;
 
             case SYMBOL_TYPES.TEMP_CALC:
-                return `temp_${this.temp_calc_id++}`;
+                return `temp_${SymbolTable.temp_calc_id++}`;
 
             case SYMBOL_TYPES.LOOP_LABEL:
                 return `loop_${SymbolTable.loop_id++}`;
@@ -112,14 +114,12 @@ class SymbolTable {
     generate_scoped_label(scope, label) {
         if (!scope || !label) return;
         switch (label.type) {
-            case SYMBOL_TYPES.INTEGER_LITERAL:
-                return `${label.label}`;
-
-            case SYMBOL_TYPES.TEMP_CALC:
             case SYMBOL_TYPES.VARIABLE:
                 return `${scope}_${label.label}`;
 
+            case SYMBOL_TYPES.TEMP_CALC:
             case SYMBOL_TYPES.IF_LABEL:
+            case SYMBOL_TYPES.INTEGER_LITERAL:
             case SYMBOL_TYPES.LOOP_LABEL:
                 return label.label;
 
@@ -135,6 +135,9 @@ class SymbolTable {
 
     generate_code() {
         let assembly = "";
+        for (let sub_assembly of this.sub_assemblies) {
+            assembly += sub_assembly; 
+        }
         for (let symbol in this.table) {
             switch (this.table[symbol].type) {
                 default:
@@ -671,7 +674,6 @@ class Compiler extends Visitor {
         if (ctx.children.length < 4) return;
 
         let loop_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
-        console.log(loop_label);
         this.symbol_table.enter_weak_scope(loop_label);
 
         // set a starting label, and do some loopy stuff
@@ -788,13 +790,72 @@ class Compiler extends Visitor {
         }
     }
 
-    visitDef(ctx) {
-        console.log("Declaration", ctx);
-        return this.visitChildren(ctx);
+    visitFunc_dec(ctx) {
+        if (!ctx) return;
+        if (ctx.children.length < 5) return;
+
+        let { func_name, params } = ctx.children[1].accept(this);
+
+        let new_scope = new SymbolTable(func_name, this.symbol_table);
+        this.symbol_table = new_scope;
+
+        this.symbol_table_pool.push(this.symbol_table);
+
+        // NOTE: This will break at some point
+        let assembly_temp = assembly;
+        assembly = "";
+        let _ = ctx.children[2].accept(this);
+        this.symbol_table.sub_assemblies.push(assembly);
+
+        assembly = assembly_temp;
+
+        
+        this.symbol_table = this.symbol_table.parent;
     }
+
+    visitDef(ctx) {
+        if (!ctx) return;
+        if (ctx.children.length < 4) return;
+        let func_name = ctx.children[0].accept(this);
+
+        let params = []
+        for (let i = 2; i < ctx.children.length - 2; i +=2) {
+            params.push(ctx.children[i].accept(this));
+        }
+
+        return { func_name, params };
+    }
+
+    visitReturn(ctx) {
+        if (!ctx) return;
+        if (ctx.children.length < 3) return undefined;
+
+
+        let result = ctx.children[1].accept(this);
+
+        return result;
+    }
+
+
+
+    /* FUNCITON CALLS HERE:
+        if (this.symbol_table.parent.parent != undefined) {
+            for (let symbol in this.symbol_table.parent.table) {
+
+                symbol = this.symbol_table.parent.table[symbol];
+                switch (symbol.type) {
+                    case SYMBOL_TYPES.TEMP_CALC:
+                    case SYMBOL_TYPES.VARIABLE:
+                        assembly += `LDA ${this.symbol_table.find_symbol_label(symbol.label)}\n` +
+                                    `PSH\n`;
+                }
+            }
+        }
+    */
 }
 
-const input = `function a()
+const input = `a = 5
+function a(c,d,e)
     return a + b
 endfunction
 `;
