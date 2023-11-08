@@ -40,7 +40,6 @@ class LMC_Visualiser {
 
         this.run_state = false;
 
-        this.vm_states.push(this.virtual_machine.snapshot());
         this.vm_slow_run_task();
 
         this.virtual_machine.print_command = this.output_text.bind(this);
@@ -105,8 +104,8 @@ class LMC_Visualiser {
     }
 
     async step_vm() {
-        let done = await this.virtual_machine.step();
         this.vm_states.push(this.virtual_machine.snapshot());
+        let done = await this.virtual_machine.step();
         this.visualise();
         return done;
     }
@@ -131,19 +130,19 @@ class LMC_Visualiser {
         return this.parent_div.getElementsByClassName("slider")[0].value;
     }
 
-    step_back_vm() {
+    async step_back_vm() {
         //NOTE: was a bug here with a minus 1 instead of minus 2
-        let index = this.vm_states.length - 2;
+        let index = this.vm_states.length - 1;
         if (index < 0) return;
 
-        this.virtual_machine.restore(this.vm_states[index]);
+        await this.virtual_machine.restore(this.vm_states[index]);
         this.vm_states.pop();
         this.visualise();
     }
 
-    restart_vm() {
+    async restart_vm() {
         if (this.vm_states.length == 0) return;
-        this.virtual_machine.restore(this.vm_states[0]);
+        await this.virtual_machine.restore(this.vm_states[0]);
         this.vm_states = [];
         this.visualise();
     }

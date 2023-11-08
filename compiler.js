@@ -63,6 +63,9 @@ class SymbolTable {
     }
 
     find_symbol_reference(name) {
+        if (name === "literal_3") {
+            console.trace("boop");
+        }
         for (let key in this.table) {
             if (name == key) {
                 return { name: this.table[name], ctx: this };
@@ -151,9 +154,16 @@ class SymbolTable {
     }
 
     generate_symbol(initial_value, type) {
+        switch (type) {
+            case SYMBOL_TYPES.INTEGER_LITERAL:
+                if (this.parent) return this.parent.generate_symbol(initial_value, type);
+                else break;
+        }
+
         let literal_name = this.generate_label(initial_value, type);
 
         if (!this.already_exists(literal_name)) {
+            console.log(literal_name, initial_value, "did not exist", this);
             this.add_symbol(literal_name, type, initial_value);
         }
         let access = this.find_symbol_label(literal_name);
@@ -804,7 +814,20 @@ class Compiler extends Visitor {
         // NOTE: This will break at some point
         let assembly_temp = assembly;
         assembly = "";
-        let _ = ctx.children[2].accept(this);
+
+        assembly += `${func_name}_start NOP\n`;
+
+        for (let i = params.length - 1; i >= 0; i--) {
+            let param = this.symbol_table.generate_symbol(params[i], SYMBOL_TYPES.VARIABLE)
+            assembly += `POP\n` +
+                        `STA ${param}\n`;
+        }
+
+        ctx.children[2].accept(this);
+        
+        assembly += `POP\n` +
+                    `RET\n`;
+
         this.symbol_table.sub_assemblies.push(assembly);
 
         assembly = assembly_temp;
@@ -820,7 +843,8 @@ class Compiler extends Visitor {
 
         let params = []
         for (let i = 2; i < ctx.children.length - 2; i +=2) {
-            params.push(ctx.children[i].accept(this));
+            let param = ctx.children[i].accept(this);
+            params.push(param);
         }
 
         return { func_name, params };
@@ -828,16 +852,57 @@ class Compiler extends Visitor {
 
     visitReturn(ctx) {
         if (!ctx) return;
-        if (ctx.children.length < 3) return undefined;
+        if (ctx.children.length < 2) return;
+        if (ctx.children.length == 2) assembly += `POP\nRET\n`
 
 
         let result = ctx.children[1].accept(this);
-
-        return result;
+        let temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+        
+        // swap the return address and return value on the stack
+        assembly += `POP\n` +
+                    `STA ${temp}\n` +
+                    `LDA ${result}\n` +
+                    `PSH\n` +
+                    `LDA ${temp}\n` +
+                    `RET\n`;
     }
 
 
+    visitFunc_call(ctx) {
+        if (!ctx) return;
+        if (ctx.children.length < 3) return;
 
+        let func_to_call = ctx.children[0].accept(this);
+
+        let offset_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+        let offset = 0;
+        assembly += `LDAPC\n` +
+                    `ADD ${offset_label}\n` +
+                    `PSH\n`;
+        offset += 2;
+
+        for (let i = 2; i < ctx.children.length - 1; i += 2) {
+            let label = ctx.children[i].accept(this);
+            assembly += `LDA ${label}\n` +
+                        `PSH\n`;
+            offset += 2;
+        }
+
+        assembly += `BRA ${func_to_call}_start\n`;
+        offset += 1;
+
+        this.symbol_table.table[offset_label].starting_value = offset;
+
+        let result_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+        
+        assembly += `POP\n` +
+                    `STA ${result_label}\n`;
+
+        return result_label;
+
+        
+    }
     /* FUNCITON CALLS HERE:
         if (this.symbol_table.parent.parent != undefined) {
             for (let symbol in this.symbol_table.parent.table) {
@@ -854,11 +919,21 @@ class Compiler extends Visitor {
     */
 }
 
-const input = `a = 5
-function a(c,d,e)
-    return a + b
+// TODO: enforce that multiple variables of different types and the same name cannot be defined
+
+const input = `function fib(n)
+    if n < 3 then
+        return 1
+    endif
+    return fib(n - 1) + fib(n - 2)
 endfunction
-`;
+i = fib(1)
+j = fib(2)
+k = fib(3)
+l = fib(10)
+`
+
+
 
 const chars = new antlr4.InputStream(input);
 const lexer = new Lexer(chars);
@@ -869,7 +944,7 @@ const tree = parser.program();
 let visitor = new Compiler();
 tree.accept(visitor);
 
-console.log(visitor.symbol_table.table);
+console.log(visitor.symbol_table_pool);
 
 console.log(assembly);
 
