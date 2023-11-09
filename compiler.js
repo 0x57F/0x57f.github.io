@@ -578,7 +578,7 @@ class Compiler extends Visitor {
                     `BRP ${result_label}_true\n` +
                     `LDA ${zero}\n` +
                     `BRA ${result_label}_end\n` +
-                    `${result_label}_true LDA ${zero}\n` +
+                    `${result_label}_true LDA ${one}\n` +
                     `${result_label}_end STA ${result_label}\n`;
                 break;
 
