@@ -366,7 +366,7 @@ class VirtualMachine {
                 break;
 
             case OPCODES_TO_NUMERIC.BRP:
-                if (this.accumulator > 0)
+                if (this.accumulator >= 0)
                     this.pc = instruction.operand;
                 break;
 

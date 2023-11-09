@@ -572,13 +572,13 @@ class Compiler extends Visitor {
                 // IF A - B - 1 is negative
                 // NOTE: tested with 4 and 20 < 10
                 assembly +=
-                    `LDA ${left_label}\n` +
-                    `SUB ${right_label}\n` +
+                    `LDA ${right_label}\n` +
+                    `SUB ${left_label}\n` +
                     `SUB ${one}\n` +
-                    `BRP ${result_label}_false\n` +
-                    `LDA ${one}\n` +
+                    `BRP ${result_label}_true\n` +
+                    `LDA ${zero}\n` +
                     `BRA ${result_label}_end\n` +
-                    `${result_label}_false LDA ${zero}\n` +
+                    `${result_label}_true LDA ${zero}\n` +
                     `${result_label}_end STA ${result_label}\n`;
                 break;
 
@@ -587,13 +587,13 @@ class Compiler extends Visitor {
                 // IF B - A - 1 is negative
                 // NOTE: Tested with 10>4, 4 > 10, 4>4
                 assembly +=
-                    `LDA ${right_label}\n` +
-                    `SUB ${left_label}\n` +
+                    `LDA ${left_label}\n` +
+                    `SUB ${right_label}\n` +
                     `SUB ${one}\n` +
-                    `BRP ${result_label}_false\n` +
-                    `LDA ${one}\n` +
+                    `BRP ${result_label}_true\n` +
+                    `LDA ${zero}\n` +
                     `BRA ${result_label}_end\n` +
-                    `${result_label}_false LDA ${zero}\n` +
+                    `${result_label}_true LDA ${one}\n` +
                     `${result_label}_end STA ${result_label}\n`;
                 break;
 
@@ -921,16 +921,21 @@ class Compiler extends Visitor {
 
 // TODO: enforce that multiple variables of different types and the same name cannot be defined
 
-const input = `function fib(n)
+
+//TODO: < is broken again
+
+const input = `i = 2
+if i < 3 then
+    i = 1234
+endif
+
+function fib(n)
     if n < 3 then
         return 1
     endif
     return fib(n - 1) + fib(n - 2)
 endfunction
-i = fib(1)
-j = fib(2)
-k = fib(3)
-l = fib(10)
+i = fib(3)
 `
 
 
