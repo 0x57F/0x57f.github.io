@@ -890,7 +890,7 @@ class Compiler extends Visitor {
         }
 
         assembly += `BRA ${func_to_call}_start\n`;
-        offset += 1;
+        offset += 2;
 
         this.symbol_table.table[offset_label].starting_value = offset;
 
