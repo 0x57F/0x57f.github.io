@@ -63,9 +63,6 @@ class SymbolTable {
     }
 
     find_symbol_reference(name) {
-        if (name === "literal_3") {
-            console.trace("boop");
-        }
         for (let key in this.table) {
             if (name == key) {
                 return { name: this.table[name], ctx: this };
@@ -163,7 +160,6 @@ class SymbolTable {
         let literal_name = this.generate_label(initial_value, type);
 
         if (!this.already_exists(literal_name)) {
-            console.log(literal_name, initial_value, "did not exist", this);
             this.add_symbol(literal_name, type, initial_value);
         }
         let access = this.find_symbol_label(literal_name);
@@ -876,21 +872,48 @@ class Compiler extends Visitor {
         let func_to_call = ctx.children[0].accept(this);
 
         let offset_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
-        let offset = 0;
+        let offset = -1;
+
+    
+        let params = [];
+        for (let i = 2; i < ctx.children.length - 1; i += 2) {
+            params.push(ctx.children[i].accept(this))
+        }
+
+        let symbols = [];
+
+        if (this.symbol_table != undefined) {
+            for (let symbol in this.table) {
+
+                symbol = this.symbol_table.table[symbol];
+                switch (symbol.type) {
+                    case SYMBOL_TYPES.TEMP_CALC:
+                    case SYMBOL_TYPES.VARIABLE:
+                        let label = this.symbol_table.find_symbol_label(symbol.label);
+                        symbols.push(label);
+                        assembly += `LDA ${this.symbol_table.find_symbol_label(label)}\n` +
+                                    `PSH\n`;
+                }
+            }
+        }
+
+        console.log(params);
         assembly += `LDAPC\n` +
                     `ADD ${offset_label}\n` +
                     `PSH\n`;
-        offset += 2;
+        offset += 3;
 
-        for (let i = 2; i < ctx.children.length - 1; i += 2) {
-            let label = ctx.children[i].accept(this);
+        params.forEach((label) => {
             assembly += `LDA ${label}\n` +
                         `PSH\n`;
             offset += 2;
-        }
+        });
+
 
         assembly += `BRA ${func_to_call}_start\n`;
-        offset += 2;
+        offset += 1;
+
+        console.log(offset, offset_label);
 
         this.symbol_table.table[offset_label].starting_value = offset;
 
@@ -899,23 +922,16 @@ class Compiler extends Visitor {
         assembly += `POP\n` +
                     `STA ${result_label}\n`;
 
+        for (let i = symbols.length - 1; i >=0; i--) {
+            assembly += `POP\n` +
+                        `STA ${symbols[i]}\n`;
+        }
+
         return result_label;
 
         
     }
     /* FUNCITON CALLS HERE:
-        if (this.symbol_table.parent.parent != undefined) {
-            for (let symbol in this.symbol_table.parent.table) {
-
-                symbol = this.symbol_table.parent.table[symbol];
-                switch (symbol.type) {
-                    case SYMBOL_TYPES.TEMP_CALC:
-                    case SYMBOL_TYPES.VARIABLE:
-                        assembly += `LDA ${this.symbol_table.find_symbol_label(symbol.label)}\n` +
-                                    `PSH\n`;
-                }
-            }
-        }
     */
 }
 
@@ -924,18 +940,14 @@ class Compiler extends Visitor {
 
 //TODO: < is broken again
 
-const input = `i = 2
-if i < 3 then
-    i = 1234
-endif
-
+const input = `i = fib(0)
 function fib(n)
     if n < 3 then
         return 1
     endif
     return fib(n - 1) + fib(n - 2)
 endfunction
-i = fib(3)
+i = fib(5)
 `
 
 
