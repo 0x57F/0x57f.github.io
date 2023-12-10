@@ -940,8 +940,7 @@ class Compiler extends Visitor {
 
 //TODO: < is broken again
 
-const input = `i = fib(0)
-function fib(n)
+const input = `function fib(n)
     if n < 3 then
         return 1
     endif
