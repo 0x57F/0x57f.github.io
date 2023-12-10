@@ -87,6 +87,12 @@ class LMC_Visualiser {
             this.editor.session.removeMarker(this.last_marker_id);
             this.last_marker_id = this.editor.session.addMarker(new Range(this.virtual_machine.pc, 0, this.virtual_machine.pc, 1), "marker", "fullLine");
         }
+
+        // The memory has grown
+        if (this.memory_size < this.virtual_machine.ram.length) {
+            this.memory_size = this.virtual_machine.ram.length;
+        }
+        this.init_memory();
         let memory_cells = this.parent_div.getElementsByClassName("memorycell");
         for (let i = 0; i < this.virtual_machine.ram.length; i++) {
             memory_cells[i].innerHTML = this.virtual_machine.ram[i].toString().padStart(4, "0");
