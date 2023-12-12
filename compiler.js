@@ -275,6 +275,8 @@ class CompilerVisitor extends Visitor {
 
         let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
 
+        console.log(`Adding/Subbing ${left_operand} and ${right_operand}`);
+
         this.assembly += `LDA ${left_operand}\n`
 
         switch (ctx.children[1].symbol.type) {
@@ -293,6 +295,8 @@ class CompilerVisitor extends Visitor {
     }
 
 
+    // BUG: this does not resepect multiple values in a line e.g. 2/3*4
+    // This is the same for all other maths operations, and potentially comparisons
     visitMul(ctx) {
         if (ctx.children.length < 3) return ctx.children[0].accept(this);
 
@@ -305,6 +309,7 @@ class CompilerVisitor extends Visitor {
 
         let loop_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
 
+        console.log(`Mul/Div ${left_label} and ${right_label}`);
         // Add the literal one to the symbol table for ocunting purposes
         let one = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
 
@@ -359,6 +364,7 @@ class CompilerVisitor extends Visitor {
         let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
 
         let loop_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
+        console.log(`MOD/DIV ${left_label} and ${right_label}`);
 
         // Copy the left operands to avoid mutation
         let left_label_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
@@ -401,6 +407,7 @@ class CompilerVisitor extends Visitor {
         return total_label;
     }
 
+    //BUG: Seems to do one less than required -- fixed, caused by an automatic refactor renaming an istance of left_label to left_label_temp
     visitPow(ctx) {
         if (ctx.children.length < 3) return ctx.children[0].accept(this);
 
@@ -410,9 +417,10 @@ class CompilerVisitor extends Visitor {
         let right_label = ctx.children[2].accept(this);
 
         let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+        console.log(`POW ${left_label} and ${right_label}`);
 
-        let outer_loop_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
-        let inner_loop_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
+        let outer_loop = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
+        let inner_loop = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
 
         // Add the literal one to the symbol table for counting purposes
         let one = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
@@ -424,42 +432,41 @@ class CompilerVisitor extends Visitor {
             `STA ${left_label_temp}\n`;
 
         // Copy the left and right operands to avoid mutation
-        let right_operand_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
+        let right_label_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
         this.assembly += `LDA ${right_label}\n` +
-            `STA ${right_operand_temp}\n`;
+            `STA ${right_label_temp}\n`;
 
         this.assembly += '\n';
         switch (ctx.children[1].symbol.type) {
             case Lexer.POW:
                 this.assembly +=
                     // For explanation of pseudocode, see flowchart "LMC POW.drawio"
-                    `LDA ${left_label_temp}\n` +
-                    `STA ${left_label_temp}\n` +
-                    `${outer_loop_label}_start BRA ${inner_loop_label}_start\n` +
+                    `${outer_loop}_start BRA ${inner_loop}_start\n` +
                     // Create a copy of the left label, needs to be done every loop
-                    `${inner_loop_label}_start LDA ${total_label}\n` +
-                    `ADD ${left_label_temp}\n` +
+                    `${inner_loop}_start LDA ${total_label}\n` +
+                    `ADD ${left_label}\n` +
                     `STA ${total_label}\n` +
                     `LDA ${left_label_temp}\n` +
                     `SUB ${one}\n` +
                     `STA ${left_label_temp}\n` +
-                    `BRZ ${inner_loop_label}_end\n` +
-                    `BRA ${inner_loop_label}_start\n` +
-                    `${inner_loop_label}_end LDA ${right_operand_temp}\n` +
+                    `BRZ ${inner_loop}_end\n` +
+                    `BRA ${inner_loop}_start\n` +
+                    `${inner_loop}_end LDA ${right_label_temp}\n` +
                     `SUB ${one}\n` +
-                    `STA ${right_operand_temp}\n` +
+                    `STA ${right_label_temp}\n` +
                     `SUB ${one}\n` +
-                    `BRZ ${outer_loop_label}_end\n` +
+                    `BRZ ${outer_loop}_end\n` +
                     `LDA ${total_label}\n` +
                     `STA ${left_label_temp}\n` +
                     `LDA ${zero}\n` +
                     `STA ${total_label}\n` +
-                    `BRA ${outer_loop_label}_start\n` +
-                    `${outer_loop_label}_end LDA ${total_label}\n`;
+                    `BRA ${outer_loop}_start\n` +
+                    `${outer_loop}_end LDA ${total_label}\n`;
 
                 break;
 
             default:
+                console.warn("Unhandled power case");
                 break;
         }
         return total_label;
@@ -920,11 +927,11 @@ class CompilerVisitor extends Visitor {
         let params = [];
 
         for (let i = 2; i < ctx.children.length - 1; i += 2) {
-            console.log(ctx.children[i]);
+            //console.log(ctx.children[i]);
             let label = ctx.children[i].accept(this);
             params.push(label);
         }
-        console.log(params);
+        //console.log(params);
 
         let result;
 
@@ -946,7 +953,7 @@ class CompilerVisitor extends Visitor {
                 return result;
 
             case "assert":
-                console.log(ctx);
+                //console.log(ctx);
                 result = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
                 let one = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
                 let loop = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
@@ -996,7 +1003,16 @@ class Compiler {
 // BUG: IF NOT BRANCHING TO THE END AND ALWAYS EXECUTING THE ELSE STATEMENT EVEN WHEN IT SHOULDN'T -- FIXED
 
 // BUG: WHEN DEALING WITH VERY LARGE PROGRAMS, instrucions and memory addresses join together
-const input = `assert(true)
+const input = `
+i = (4 / 2) * 3 + (4 + 6 * 2) + 18 / 3 ^ 2 - 8 
+print((4 / 2) * 3)
+print((4 + 6 * 2))
+print(3 ^ 2)
+print(18 / 3 ^ 2)
+print(i)
+assert(i == 16)
+
+assert(true)
 assert(NOT false)
 assert(NOT false == true)
 
@@ -1037,7 +1053,8 @@ assert(10 == 10)
 assert(5 != 10)
 assert(15 != 10)
 assert((10 != 10) == false)
-
+`
+let a = `
 
 // 27
 a = 5
@@ -1050,8 +1067,10 @@ assert(a > b)
 assert(-b == 10)
 assert(-b > a)
 
-assert(4 / 2 * 3 + (4 + 6 * 2) + 18 / 3 ^ 2 - 8 == 16)
 
+`
+
+const second_test = `
 // 32
 if a > b then
     assert(true)
@@ -1068,7 +1087,6 @@ if a <= b then
 elseif true then
     assert(true)
 endif
-
 if a <= b then
     assert(false)
 elseif false then
@@ -1126,15 +1144,18 @@ i = 0
 print(i)
 i = input()
 print(i)
-
-
 `
-
 
 const compiler = new Compiler();
 
 compiler.compile(input);
+let assembly = compiler.assembly;
 
-console.log(compiler.assembly);
+/*
+compiler.compile(second_test);
+let assembly = compiler.assembly;
+*/
+
+console.log(assembly);
 
 export default { CompilerVisitor: Compiler };
