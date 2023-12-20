@@ -1003,14 +1003,8 @@ class Compiler {
 // BUG: IF NOT BRANCHING TO THE END AND ALWAYS EXECUTING THE ELSE STATEMENT EVEN WHEN IT SHOULDN'T -- FIXED
 
 // BUG: WHEN DEALING WITH VERY LARGE PROGRAMS, instrucions and memory addresses join together
-const input = `
-i = (4 / 2) * 3 + (4 + 6 * 2) + 18 / 3 ^ 2 - 8 
-print((4 / 2) * 3)
-print((4 + 6 * 2))
-print(3 ^ 2)
-print(18 / 3 ^ 2)
-print(i)
-assert(i == 16)
+// BUG: Math was breaking -- fixed by modifying grammar to be recursive on calculations
+const first_tests = `
 
 assert(true)
 assert(NOT false)
@@ -1053,9 +1047,17 @@ assert(10 == 10)
 assert(5 != 10)
 assert(15 != 10)
 assert((10 != 10) == false)
-`
-let a = `
 
+i = (4 / 2) * 3 + (4 + 6 * 2) + 18 / 3 ^ 2 - 8 
+print((4 / 2) * 3)
+print((4 + 6 * 2))
+print(3 ^ 2)
+print(18 / 3 ^ 2)
+print(i)
+assert(i == 16)
+`
+
+const second_test = `
 // 27
 a = 5
 assert(a == 5)
@@ -1066,11 +1068,6 @@ assert(b == -10)
 assert(a > b)
 assert(-b == 10)
 assert(-b > a)
-
-
-`
-
-const second_test = `
 // 32
 if a > b then
     assert(true)
@@ -1124,7 +1121,7 @@ while i < 10
         if j == 5 then
             break
         endif
-        j = 1 + i
+        j = 1 + j
     endwhile
     assert(j == 5)
     i = i + 1
@@ -1148,14 +1145,12 @@ print(i)
 
 const compiler = new Compiler();
 
-compiler.compile(input);
+compiler.compile(first_tests);
 let assembly = compiler.assembly;
-
-/*
-compiler.compile(second_test);
-let assembly = compiler.assembly;
-*/
-
 console.log(assembly);
+
+compiler.compile(second_test);
+console.log(compiler.assembly);
+
 
 export default { CompilerVisitor: Compiler };
