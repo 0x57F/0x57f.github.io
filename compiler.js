@@ -436,7 +436,6 @@ class CompilerVisitor extends Visitor {
         this.assembly += `LDA ${right_label}\n` +
             `STA ${right_label_temp}\n`;
 
-        this.assembly += '\n';
         switch (ctx.children[1].symbol.type) {
             case Lexer.POW:
                 this.assembly +=
@@ -627,7 +626,7 @@ class CompilerVisitor extends Visitor {
                     `LDA ${one}\n` +
                     `BRA ${result_label}_end\n` +
                     `LDA ${zero}\n` +
-                    `${result_label}_end STA ${result_label}\n\n`;
+                    `${result_label}_end STA ${result_label}\n`;
                 break;
 
             case 'OR':
@@ -1003,6 +1002,7 @@ class Compiler {
 // BUG: IF NOT BRANCHING TO THE END AND ALWAYS EXECUTING THE ELSE STATEMENT EVEN WHEN IT SHOULDN'T -- FIXED
 
 // BUG: WHEN DEALING WITH VERY LARGE PROGRAMS, instrucions and memory addresses join together
+// BUG: RETURN OF ABOVE: WITH INSTRUCTIONS REQUIRING
 // BUG: Math was breaking -- fixed by modifying grammar to be recursive on calculations
 const first_tests = `
 

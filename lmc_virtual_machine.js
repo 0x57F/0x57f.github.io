@@ -92,6 +92,7 @@ class Instruction {
         switch (this.opcode) {
             case OPCODES_TO_NUMERIC.DAT:
                 return this.operand;
+
             default:
                 if (this.operand >= 1000) throw new Error(`Illegal operand length: ${this.operand} ${this.opcode}`);
                 return this.opcode * 1000 + this.operand;
