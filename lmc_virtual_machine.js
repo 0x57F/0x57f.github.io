@@ -13,6 +13,7 @@ const OPCODES_TO_NUMERIC = {
     BRZ: 7,
     BRP: 8,
     INP: 9,
+    INPC: 9,
     OUT: 9,
     OUTC: 9,
     NOP: 9,
@@ -26,9 +27,12 @@ const OPCODES_TO_EXTRA_NUMERIC = {
     PSH: 2,
     LDAPC: 3,
     LDACC: 4,
+
     INP: 1,
+    INPC: 4,
     OUT: 2,
     OUTC: 3,
+
     NOP: 999,
     HLT: 0,
     RET: 1
@@ -88,7 +92,9 @@ class Instruction {
         switch (this.opcode) {
             case OPCODES_TO_NUMERIC.DAT:
                 return this.operand;
+
             default:
+                if (this.operand >= 1000) throw new Error(`Illegal operand length: ${this.operand} ${this.opcode}`);
                 return this.opcode * 1000 + this.operand;
         }
     }
@@ -101,6 +107,7 @@ class Instruction {
      * @returns {Instruction} The instruction generated from number
      */
     static from_numeric(number) {
+        if (!number) return new Instruction(0, 0);
         let operand = number % 1000;
         let opcode = (number - operand) / 1000;
         return new Instruction(opcode, operand);
@@ -118,17 +125,35 @@ class VirtualMachine {
      *
      * @param {String} program_string - The program to compile
      */
-    constructor(program_string) {
+    constructor() {
         this.ram = [];
         this.stack = [];
         this.input_stack = [];
         this.accumulator = 0;
         this.pc = 0;
 
+        this.print_command = console.log;
+        this.request_input = async () => this.input_stack.pop();
+    }
+
+    assemble(program_string) {
         let tokens = this.lexical_analysis(program_string);
+        console.log(tokens);
         let instructions, symbol_table;
         [instructions, symbol_table] = this.syntax_analysis(tokens);
-        this.assemble(instructions, symbol_table);
+        return this.generate_code(instructions, symbol_table);
+    }
+
+    assemble_into_ram(program_string) {
+        this.ram = this.assemble(program_string);
+    }
+
+    reset_state() {
+        this.stack = [];
+        this.ram = [];
+        this.pc = 0;
+        this.accumulator = 0;
+        this.input_stack = [];
     }
 
     /**
@@ -147,6 +172,7 @@ class VirtualMachine {
             (elem, index, array) => {
                 elem = this.preprocess(elem);
                 elem = elem.split(" ");
+                if (!elem) return;
 
                 let comment_index = elem.findIndex(item => item.match(/\/\/\w*/))
 
@@ -175,21 +201,24 @@ class VirtualMachine {
                 let token = new Token(undefined, lexeme);
 
                 switch (lexeme) {
-                    case (KEYWORDS.find(value => value == lexeme)):
-                        token.type = TOKENS.OPERATION;
-                        break;
+                case (KEYWORDS.find(value => value == lexeme.toUpperCase())):
+                    token.type = TOKENS.OPERATION;
+                    break;
 
-                    case "\n":
-                        token.type = TOKENS.NEW_INSTRUCTION;
-                        break;
+                case "\n":
+                    token.type = TOKENS.NEW_INSTRUCTION;
+                    break;
 
-                    case !isNaN(lexeme) || lexeme:
-                        token.type = TOKENS.LABEL;
-                        break;
+                case !isNaN(lexeme) || lexeme:
+                    token.type = TOKENS.LABEL;
+                    break;
 
-                    default:
-                        token.type = TOKENS.LITERAL;
-                        token.value = Number(lexeme);
+                case "":
+                    break;
+
+                default:
+                    token.type = TOKENS.LITERAL;
+                    token.value = Number(lexeme);
                 }
                 tokens.push(token);
             }
@@ -262,7 +291,9 @@ class VirtualMachine {
      * @param {Object} symbol_table - Contains the keys and locations of all labels
      * @throws {Error} - If a label has not been found, panic
      */
-    assemble(instructions, symbol_table) {
+    generate_code(instructions, symbol_table) {
+        let ram = [];
+        
         // expand on the labels, and conver everything to it's numeric value
         for (let instruction_index in instructions) {
             let instruction = instructions[instruction_index];
@@ -274,8 +305,10 @@ class VirtualMachine {
                 throw new Error(`Undefined symbol: ${instruction.operand}`)
             }
 
-            this.ram[instruction_index] = instruction.to_numeric();
+            ram[instruction_index] = instruction.to_numeric();
         }
+
+        return ram;
     }
 
     /**
@@ -285,7 +318,7 @@ class VirtualMachine {
      * @returns {String} the processed string
      */
     preprocess(text) {
-        text = text.replaceAll('\t', ' ');
+        text = text.replaceAll('\t', ' ').trimRight();
         let output = "";
         // flatten spaces
         for (let i in text) {
@@ -304,7 +337,7 @@ class VirtualMachine {
      * @throws {Error} - Unhandled Instruction, used in case something goes very wrong indeed
      * @returns {Boolean} A boodlean stating wether the program is still running
      */
-    step() {
+    async step() {
         let instruction = Instruction.from_numeric(this.ram[this.pc]);
         this.pc += 1;
 
@@ -336,7 +369,7 @@ class VirtualMachine {
                 break;
 
             case OPCODES_TO_NUMERIC.BRP:
-                if (this.accumulator > 0)
+                if (this.accumulator >= 0)
                     this.pc = instruction.operand;
                 break;
 
@@ -353,26 +386,36 @@ class VirtualMachine {
                 break;
 
             case OPCODES_TO_NUMERIC.INP:
+            case OPCODES_TO_NUMERIC.INPC:
             case OPCODES_TO_NUMERIC.OUT:
             case OPCODES_TO_NUMERIC.OUTC:
             case OPCODES_TO_NUMERIC.NOP:
                 switch (instruction.operand) {
                     case OPCODES_TO_EXTRA_NUMERIC.INP:
                         console.warn("Input not fully implemented, using a predetermined stack");
-                        this.accumulator = this.input_stack.pop();
+                        let input = await this.request_input()
+                        this.accumulator = parseInt(input);
+                        break;
+
+                    case OPCODES_TO_EXTRA_NUMERIC.INPC:
+                        console.warn("Input not fully implemented, using a predetermined stack");
+                        this.accumulator = (await this.request_input()).charCodeAt(0);
                         break;
 
                     case OPCODES_TO_EXTRA_NUMERIC.OUT:
-                        console.log(this.accumulator);
+                        this.print_command(this.accumulator);
                         break;
 
                     case OPCODES_TO_EXTRA_NUMERIC.OUTC:
-                        console.log(String.fromCharCode(this.accumulator));
+                        this.print_command(String.fromCharCode(this.accumulator));
                         break;
 
                     case OPCODES_TO_EXTRA_NUMERIC.NOP:
                         break;
 
+                    default:
+                        console.error("Unrecognised instruction", instruction);
+                        return false;
                 }
                 break;
 
@@ -402,7 +445,6 @@ class VirtualMachine {
                 console.log(this.pc, this.accumulator, this.ram, this.stack);
                 throw new Error(`How on earth did you get here?`);
         }
-        // console.log(this.pc, this.accumulator, this.stack, this.ram[this.pc - 1]);
         return done;
     }
 
@@ -411,16 +453,55 @@ class VirtualMachine {
      *
      */
     async run() {
-        console.log("Running");
-        const delay = ms => new Promise(res => setTimeout(res, ms));
-        this.pc = 0;
         let done = false;
 
         while (!done) {
             // await delay(100);
-            done = this.step();
+            done = await this.step();
         }
     }
+
+
+    snapshot() {
+        return {
+            ram: Array.from(this.ram),
+            registers: {accumulator: this.accumulator, pc: this.pc},
+            stack: Array.from(this.stack)
+        }
+    }
+
+    restore(snapshot) {
+        this.ram = Array.from(snapshot.ram);
+        this.stack = Array.from(snapshot.stack);
+        this.pc = snapshot.registers.pc;
+        this.accumulator= snapshot.registers.accumulator;
+    }
 }
+
+let vm = new VirtualMachine();
+vm.reset_state();
+vm.input_stack = [123, 123];
+vm.assemble_into_ram(`        INP
+        STA NUM1
+        INP 
+        STA NUM2
+LOOP    LDA TOTAL
+        ADD NUM1
+        STA TOTAL
+        LDA NUM2
+        SUB ONE
+        STA NUM2
+        BRP LOOP
+        LDA TOTAL
+        SUB NUM1
+        STA TOTAL
+        OUT
+        HLT
+NUM1    DAT
+NUM2    DAT
+ONE     DAT 1
+TOTAL   DAT 0`);
+
+console.log(vm.ram);
 
 export default { VirtualMachine };

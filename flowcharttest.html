@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Compilers and Little Man Computing</title>
+    <link rel="stylesheet" href="stylesheet.css">
+</head>
+
+<body>
+    <script src="lib/parser.js" type="module"></script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    </script>
+    <script src="compiler_visualiser.js" type="module"></script>
+    <script src="state_machine.js" type="module"></script>
+    <script type="module">
+        import * as _ from "./lib/ace/ace.js";
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs'
+        document.mermaid = mermaid;
+        var editor = ace.edit("editor");
+        editor.session.setMode("ace/mode/python");
+        document.ace_editor = editor;
+
+        import imports from "./compiler_visualiser.js";
+        const {CompilerVisualiser, AstVisitor} = imports;
+        let vis = new CompilerVisualiser(document.getElementsByClassName("mermaid-div")[0], editor, mermaid);
+        
+        document.getElementById("visualise").onclick = () => {
+            vis.visualise();
+        }
+    </script>
+    <div class="mermaid-div">
+        <pre id="viewer" class="mermaid">
+        flowchart TD
+        </pre>
+    </div>
+    <div class="class2">
+        <div id="editor"></div>
+        <button id="visualise">Visualise</button>
+    </div>
+
+    <script src="lib/ace/ace.js" type="text/javascript" charset="utf-8"></script>
+
+</body>
+
+</html>
