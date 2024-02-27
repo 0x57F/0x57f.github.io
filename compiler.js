@@ -295,6 +295,8 @@ class CompilerVisitor extends Visitor {
     }
 
 
+    // BUG: this does not resepect multiple values in a line e.g. 2/3*4
+    // This is the same for all other maths operations, and potentially comparisons
     visitMul(ctx) {
         if (ctx.children.length < 3) return ctx.children[0].accept(this);
 
@@ -316,6 +318,7 @@ class CompilerVisitor extends Visitor {
             case Lexer.MUL:
                 // copy the right operand to avoid mutation
                 // NOTE: Result was never resetting between runs
+
                 let right_label_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
                 this.assembly +=
                     `LDA ${right_label}\n` +
@@ -979,6 +982,7 @@ class CompilerVisitor extends Visitor {
     visitSwtich_case(ctx) {
 
         throw new Error("Swtich case statements are not supported, please use if else's");
+        return;
     }
 }
 
@@ -1164,11 +1168,12 @@ endwhile
 
 const compiler = new Compiler();
 
+const compiler = new Compiler();
+
 compiler.compile(first_tests);
 let assembly = compiler.assembly;
 console.log(assembly);
 
-compiler.compile(code);
 console.log(compiler.assembly);
 
 
