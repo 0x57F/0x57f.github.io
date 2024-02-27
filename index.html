@@ -10,28 +10,6 @@
 
     <div class="class1"></div>
     <div class="class2">
-        <div id="editor">       INP
-        STA NUM1
-        INP 
-        STA NUM2
-LOOP    LDA TOTAL
-        ADD NUM1
-        STA TOTAL
-        LDA NUM2
-        SUB ONE
-        STA NUM2
-        BRP LOOP
-        LDA TOTAL
-        SUB NUM1
-        STA TOTAL
-        OUT
-        HLT
-NUM1    DAT
-NUM2    DAT
-ONE     DAT 1
-TOTAL   DAT 0
-        </div>
-        <button id="assemble button">Submit</button>
     </div>
 
     <script src="lib/ace/ace.js" type="text/javascript" charset="utf-8"></script>
@@ -40,7 +18,7 @@ TOTAL   DAT 0
     <script src="lib/parser.js" type="module"></script>
     <script src="compiler.js" type="module"> </script>
 
-    <script src="website_functionality.js" type="module"></script>
+    <script src="state_machine.js" type="module"></script>
 </body>
 
 </html>

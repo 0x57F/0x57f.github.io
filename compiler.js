@@ -312,14 +312,19 @@ class CompilerVisitor extends Visitor {
         console.log(`Mul/Div ${left_label} and ${right_label}`);
         // Add the literal one to the symbol table for ocunting purposes
         let one = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
+        let zero = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
 
         switch (ctx.children[1].symbol.type) {
             case Lexer.MUL:
                 // copy the right operand to avoid mutation
+                // NOTE: Result was never resetting between runs
+
                 let right_label_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
                 this.assembly +=
                     `LDA ${right_label}\n` +
                     `STA ${right_label_temp}\n` +
+                    `LDA ${zero}\n` +
+                    `STA ${total_label}\n` +
                     `${loop_label}_start LDA ${total_label}\n` +
                     `ADD ${left_label}\n` +
                     `STA ${total_label}\n` +
@@ -336,6 +341,8 @@ class CompilerVisitor extends Visitor {
                 this.assembly +=
                     `LDA ${left_label}\n` +
                     `STA ${left_label_temp}\n` +
+                    `LDA ${zero}\n` +
+                    `STA ${total_label}\n` +
                     `${loop_label}_start LDA ${left_label_temp}\n` +
                     `SUB ${right_label}\n` +
                     `STA ${left_label_temp}\n` +
@@ -373,10 +380,13 @@ class CompilerVisitor extends Visitor {
 
         // Add the literal one to the symbol table for ocunting purposes
         let one = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
+            let zero = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
 
         switch (ctx.children[1].symbol.type) {
             case Lexer.MODKW:
                 this.assembly +=
+                    `LDA ${zero}\n` +
+                    `STA ${total_label}\n` +
                     `${loop_label}_start LDA ${left_label_temp}\n` +
                     `SUB ${right_label}\n` +
                     `STA ${left_label_temp}\n` +
@@ -391,6 +401,8 @@ class CompilerVisitor extends Visitor {
 
             case Lexer.DIVKW:
                 this.assembly +=
+                    `LDA ${zero}\n` +
+                    `STA ${total_label}\n` +
                     `${loop_label}_start LDA ${left_label_temp}\n` +
                     `SUB ${right_label}\n` +
                     `STA ${left_label_temp}\n` +
@@ -439,6 +451,8 @@ class CompilerVisitor extends Visitor {
         switch (ctx.children[1].symbol.type) {
             case Lexer.POW:
                 this.assembly +=
+                    `LDA ${zero}\n` +
+                    `STA ${total_label}\n` +
                     // For explanation of pseudocode, see flowchart "LMC POW.drawio"
                     `${outer_loop}_start BRA ${inner_loop}_start\n` +
                     // Create a copy of the left label, needs to be done every loop
@@ -1143,13 +1157,23 @@ i = input()
 print(i)
 `
 
+let code = `
+i = 0
+while i < 10
+    j = i * 3
+    print(j)
+    i = i + 1
+endwhile
+`;
+
+const compiler = new Compiler();
+
 const compiler = new Compiler();
 
 compiler.compile(first_tests);
 let assembly = compiler.assembly;
 console.log(assembly);
 
-compiler.compile(second_test);
 console.log(compiler.assembly);
 
 

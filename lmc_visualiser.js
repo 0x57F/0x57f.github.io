@@ -80,16 +80,15 @@ class LMC_Visualiser {
     last_marker_id = undefined;
     show_memory() {
         var Range = ace.require('ace/range').Range;
-        if (!this.last_marker_id) {
-            this.last_marker_id = this.editor.session.addMarker(new Range(this.virtual_machine.pc, 0, this.virtual_machine.pc, 1), "marker", "fullLine");
-        }
-        else {
+        if (this.last_marker_id) {
             this.editor.session.removeMarker(this.last_marker_id);
-            this.last_marker_id = this.editor.session.addMarker(new Range(this.virtual_machine.pc, 0, this.virtual_machine.pc, 1), "marker", "fullLine");
         }
+        this.last_marker_id = this.editor.session.addMarker(
+            new Range(this.virtual_machine.pc, 0, this.virtual_machine.pc, 1),
+            "marker", "fullLine");
 
         // The memory has grown
-        if (this.memory_size < this.virtual_machine.ram.length) {
+        if (this.memory_size != this.virtual_machine.ram.length) {
             this.memory_size = this.virtual_machine.ram.length;
         }
         this.init_memory();
@@ -133,7 +132,7 @@ class LMC_Visualiser {
     }
 
     read_delay() {
-        return this.parent_div.getElementsByClassName("slider")[0].value;
+        return this.parent_div.getElementsByClassName("timing_slider")[0].value;
     }
 
     async step_back_vm() {
@@ -166,19 +165,16 @@ class LMC_Visualiser {
     async get_input() {
         this.parent_div.getElementsByClassName("inputbox")[0].style = "background-color: red;";
 
-        console.log(this.input);
         const delay = (delayInms) => {return new Promise(resolve => setTimeout(resolve, delayInms));};
 
         while (this.input == "") {
             await delay(100);
-            continue;
         }
         // new value to be entered into the input box.
         this.parent_div.getElementsByClassName("inputbox")[0].style = "";
 
         let temp = this.input;
         this.input = "";
-        console.log(this.input, temp);
         return temp;
     }
 }

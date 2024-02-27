@@ -116,3 +116,14 @@
     width: 50%;
     height: 50%;
 }
+
+/* THIS STUFF IS ALL TEMPORARY */
+#assembly-view-editor {
+    width: 100%;
+    height: 90%;
+}
+
+#visualiser-editor {
+    width: 100%;
+    height: 90%;
+}

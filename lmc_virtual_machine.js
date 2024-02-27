@@ -172,6 +172,7 @@ class VirtualMachine {
             (elem, index, array) => {
                 elem = this.preprocess(elem);
                 elem = elem.split(" ");
+                if (!elem) return;
 
                 let comment_index = elem.findIndex(item => item.match(/\/\/\w*/))
 
@@ -200,7 +201,7 @@ class VirtualMachine {
                 let token = new Token(undefined, lexeme);
 
                 switch (lexeme) {
-                case (KEYWORDS.find(value => value == lexeme)):
+                case (KEYWORDS.find(value => value == lexeme.toUpperCase())):
                     token.type = TOKENS.OPERATION;
                     break;
 
@@ -463,15 +464,15 @@ class VirtualMachine {
 
     snapshot() {
         return {
-            ram: this.ram,
+            ram: Array.from(this.ram),
             registers: {accumulator: this.accumulator, pc: this.pc},
-            stack: this.stack
+            stack: Array.from(this.stack)
         }
     }
 
     restore(snapshot) {
-        this.ram = snapshot.ram;
-        this.stack = snapshot.stack;
+        this.ram = Array.from(snapshot.ram);
+        this.stack = Array.from(snapshot.stack);
         this.pc = snapshot.registers.pc;
         this.accumulator= snapshot.registers.accumulator;
     }

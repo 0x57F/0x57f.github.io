@@ -1,6 +1,6 @@
 import LMC_Visualiser from "./lmc_visualiser.js";
 import VirtualMachine from "./lmc_virtual_machine.js";
-// Import ace, and from away the import, as everything we need seems to be put out already.
+// Import ace, and throw away the import, as everything we need seems to be put out already.
 import * as _ from "./lib/ace/ace.js";
 
 
@@ -92,6 +92,4 @@ document.getElementById("assemble button").onclick = () => {
     vm.assemble_into_ram(code);
     visualiser.init();
     visualiser.visualise();
-
-    var Range = ace.require('ace/range').Range;
 }
