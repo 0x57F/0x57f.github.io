@@ -1168,8 +1168,6 @@ endwhile
 
 const compiler = new Compiler();
 
-const compiler = new Compiler();
-
 compiler.compile(first_tests);
 let assembly = compiler.assembly;
 console.log(assembly);
