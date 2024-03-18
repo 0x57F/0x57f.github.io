@@ -19,25 +19,29 @@ class SymbolTable {
         this.parent = parent;
     }
 
+    // Variables to ensure all things get unique names
     static temp_calc_id = 0;
     static loop_id = 0;
     static if_id = 0;
 
+    // Make a new symbol table from a given parent
     init_from_parent(parent, scope_name) {
         this.parent = parent;
         this.scope_prefix = scope_name;
     }
 
+    // enter the weak scope of a loop or such
     enter_weak_scope(scope_label) {
         this.weak_scope_labels.push(scope_label);
     }
 
+    // leave the weak scope of a loop or such
     leave_weak_scope() {
         this.weak_scope_labels.pop();
     }
 
+    // Add a symbol of name, type and starting value to the table
     add_symbol(name, type, starting_value) {
-        //console.log(name, type, starting_value);
         switch (type) {
             case SYMBOL_TYPES.INTEGER_LITERAL:
             case SYMBOL_TYPES.TEMP_CALC:
@@ -55,10 +59,12 @@ class SymbolTable {
         }
     }
 
+    // Find the original symbol for the label
     find_symbol(name) {
         return this.find_symbol_reference(name)?.name;
     }
 
+    // Find the name and context of a given symbol name
     find_symbol_reference(name) {
         for (let key in this.table) {
             if (name == key) {
@@ -70,6 +76,7 @@ class SymbolTable {
         return { name: undefined, ctx: undefined};
     }
 
+    // Generate an appropriate label for a symbol based on it's scope
     find_symbol_label(label_name) {
         let res = this.find_symbol_reference(label_name);
         let { name, ctx } = res;
@@ -79,10 +86,12 @@ class SymbolTable {
         return this.generate_scoped_label(ctx.scope_prefix, name);
     }
 
+    // Does the symbol exist?
     already_exists(name) {
         return this.find_symbol(name) != undefined; 
     }
 
+    // Make a label based on the name and type
     generate_label(name, type) {
         switch (type) {
             case SYMBOL_TYPES.INTEGER_LITERAL:
@@ -105,6 +114,7 @@ class SymbolTable {
         }
     }
 
+    // add a scope prefix to the label
     generate_scoped_label(scope, label) {
         if (!scope || !label) return;
         switch (label.type) {
@@ -123,12 +133,12 @@ class SymbolTable {
         }
     }
 
+    // Generate the code for the symbol table
     generate_code() {
         let assembly = "";
         for (let symbol in this.table) {
             switch (this.table[symbol].type) {
                 default:
-                    console.warn("IMPLEMENT THIS");
                     assembly += `${this.generate_scoped_label(this.scope_prefix, this.table[symbol])} DAT ${this.table[symbol].starting_value}\n`;
             }
         }
@@ -137,6 +147,7 @@ class SymbolTable {
         return assembly;
     }
 
+    // Generate the name for a symbol based on its type and value
     generate_symbol(initial_value, type) {
         switch (type) {
             case SYMBOL_TYPES.INTEGER_LITERAL:
@@ -154,6 +165,10 @@ class SymbolTable {
     }
 }
 
+/*  *
+    * A symbol is an object that we need to be defined using a DAT or something similar, but need collected and put at the end of the program
+    *
+    */
 class Symbol {
     constructor(label, type = SYMBOL_TYPES.INTEGER_LITERAL, starting_value = 0) {
         this.label = label;
@@ -162,11 +177,15 @@ class Symbol {
     }
 }
 
-
+/**
+    * This is the compiler class. It takes the form of a Visitor (a class that visits nodes), and does actions based on the type of node that has been found
+    * As it hits a node, it will add a assembly onto our compiled program, with each part being modular (returning the label that shows what hppened in that stage).
+    */
 class CompilerVisitor extends Visitor {
     constructor() {
         super();
 
+        // For debugging purposes
         this._visitTerminal = this.visitTerminal;
         this.visitTerminal = ctx => {
             //console.log('TERMINAL', ctx)
@@ -178,32 +197,33 @@ class CompilerVisitor extends Visitor {
             return this._visitChildren(ctx);
         }
 
+        // Create the symbol table and the assembly.
         this.symbol_table = new SymbolTable();
-
         this.assembly = "";
     }
 
+    // The entrypoint rule.
     visitProgram(ctx) {
-        //console.log("PORGRAM", ctx);
         this.visitChildren(ctx);
+        // make sure the progmram always halts at the end.
         this.assembly += `HLT\n`;
     }
 
+    // A general block of statements and things that need to be compiled.
     visitClosure(ctx) {
-        //console.log("CLOSURE", ctx);
         if (!ctx) return;
         if (ctx.children.length == 0) return;
 
+        // Pass through to the children
         for (let child of ctx.children) {
-            //console.log(child);
             child.accept(this);
         }
     }
 
+    // An assignment
     visitStat(ctx) {
-        //console.log("STAT", ctx);
+        // Visit and get the return values of the left and right parts
         let left_label = ctx.stat_identifier.accept(this);
-
         let right_label = ctx.stat_value.accept(this);
 
         // Must recieve a label to store and another label to load
@@ -212,28 +232,23 @@ class CompilerVisitor extends Visitor {
         return;
     }
 
+    // A name, we just need the value, and to make sure it exists in the symbol table
     visitTrue_id(ctx) {
-        //console.log("TRUE_ID", ctx);
-        // TODO: REVISIT
         if (!ctx) return this.visitChildren(ctx);
 
         let text = this.symbol_table.generate_symbol(ctx.start.text, SYMBOL_TYPES.VARIABLE);
-        //console.log("adding to table");
-        //console.log(this.symbol_table.table);
-
-        // TODO: Will break on list indexes and .calls()
         return text;
     }
 
+    // An expression, anything that returns a value is collated here
     visitExpr(ctx) {
-        //console.log("EXPR", ctx);
         if (ctx == undefined) return;
         // An expresion should always return a value, so make sure it does that
         return this.visitChildren(ctx);
     }
 
+    // An integer / boolean or somesuch
     visitLiteral(ctx) {
-        //console.log("LITERAL", ctx);
         if (ctx == undefined) return;
         let children_read_value = this.visitChildren(ctx).toString();
         let literal_name;
@@ -255,8 +270,8 @@ class CompilerVisitor extends Visitor {
             case Lexer.FALSE:
                 literal_name = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
 
-            // NOTE: Potential Bug for when working with scopes and variables
             default:
+                // Make sure that if we get one of these, we know it might be sketchy
                 console.warn("Unchecked type assumption");
                 // We got an identifier
                 literal_name = this.symbol_table.generate_symbol(children_read_value, SYMBOL_TYPES.VARIABLE);
@@ -265,6 +280,8 @@ class CompilerVisitor extends Visitor {
         return literal_name;
     }
 
+    // The entrypoint to all calculation rules, passes through recursively to lower rules to create order of operation
+    // This one deals with Addition / Subtraction
     visitCalc(ctx) {
         if (ctx.children.length < 3) return ctx.children[0].accept(this);
 
@@ -274,8 +291,6 @@ class CompilerVisitor extends Visitor {
         let right_operand = ctx.children[2].accept(this);
 
         let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
-
-        console.log(`Adding/Subbing ${left_operand} and ${right_operand}`);
 
         this.assembly += `LDA ${left_operand}\n`
 
@@ -295,30 +310,24 @@ class CompilerVisitor extends Visitor {
     }
 
 
-    // BUG: this does not resepect multiple values in a line e.g. 2/3*4
-    // This is the same for all other maths operations, and potentially comparisons
+    // The multiplication / division calculation
     visitMul(ctx) {
         if (ctx.children.length < 3) return ctx.children[0].accept(this);
 
+        // Init our labels
         // Left operand should aready be loaded into memory
         let left_label = ctx.children[0].accept(this);
         // right operand should be a label
         let right_label = ctx.children[2].accept(this);
-
         let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
-
         let loop_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
 
-        console.log(`Mul/Div ${left_label} and ${right_label}`);
         // Add the literal one to the symbol table for ocunting purposes
         let one = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
         let zero = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
 
         switch (ctx.children[1].symbol.type) {
             case Lexer.MUL:
-                // copy the right operand to avoid mutation
-                // NOTE: Result was never resetting between runs
-
                 let right_label_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
                 this.assembly +=
                     `LDA ${right_label}\n` +
@@ -360,6 +369,7 @@ class CompilerVisitor extends Visitor {
         return total_label;
     }
 
+    // The MOD / DIV rule, NB DIV is functionaly identical to /
     visitMod(ctx) {
         if (ctx.children.length < 3) return ctx.children[0].accept(this);
 
@@ -367,11 +377,8 @@ class CompilerVisitor extends Visitor {
         let left_label = ctx.children[0].accept(this);
         // right operand should be a label
         let right_label = ctx.children[2].accept(this);
-
         let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
-
         let loop_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
-        console.log(`MOD/DIV ${left_label} and ${right_label}`);
 
         // Copy the left operands to avoid mutation
         let left_label_temp = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
@@ -419,18 +426,13 @@ class CompilerVisitor extends Visitor {
         return total_label;
     }
 
-    //BUG: Seems to do one less than required -- fixed, caused by an automatic refactor renaming an istance of left_label to left_label_temp
+    // Power calculations - done using repeated multiplication
     visitPow(ctx) {
         if (ctx.children.length < 3) return ctx.children[0].accept(this);
 
-        // Left operand should aready be loaded into memory
         let left_label = ctx.children[0].accept(this);
-        // right operand should be a label
         let right_label = ctx.children[2].accept(this);
-
         let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
-        console.log(`POW ${left_label} and ${right_label}`);
-
         let outer_loop = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
         let inner_loop = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
 
@@ -485,11 +487,11 @@ class CompilerVisitor extends Visitor {
         return total_label;
     }
 
+    // End calculation rule, responsible for brackets and the unary operation negation.
     visitBracket(ctx) {
         if (ctx.children.length == 1) return ctx.children[0].accept(this);
         if (ctx.children.length == 3) return ctx.children[1].accept(this);
 
-        //console.log("NEG FOUND", ctx);
         let literal_zero_name = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
         let total_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
 
@@ -501,8 +503,10 @@ class CompilerVisitor extends Visitor {
         return total_label;
     }
 
+    // Checks 2 values, to compare their magnitude. Always returns 1 if true, and zero if false. Assumes that zero is the only 'false' value, so negative numbers will be evaluated as true
     visitComparison(ctx) {
         if (ctx.children.length == 2) {
+            // If we have 2 children, we must have a negation operation
             let mid_operand = ctx.children[1].accept(this);
             let result_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
             let zero = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
@@ -517,6 +521,7 @@ class CompilerVisitor extends Visitor {
                 `${result_label}_end STA ${result_label}\n`;
             return result_label
         }
+        // We have a boolean
         if (ctx.children.length < 3) {
 
             if (!ctx.bool) return this.visitChildren(ctx);
@@ -536,6 +541,8 @@ class CompilerVisitor extends Visitor {
             return result_label;
         }
 
+        // We have any other comparison
+
         let left_label = ctx.children[0].accept(this);
         let right_label = ctx.children[2].accept(this);
 
@@ -543,7 +550,6 @@ class CompilerVisitor extends Visitor {
 
         let zero = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.INTEGER_LITERAL);
         let one = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
-        //console.log(ctx.children[1].accept(this));
         switch (ctx.children[1].accept(this)) {
             case '<':
                 // A < B
@@ -657,6 +663,7 @@ class CompilerVisitor extends Visitor {
         return result_label;
     }
 
+    // For loop, has a very fixed structure
     visitFor(ctx) {
         if (!ctx) return;
         if (ctx.children.length < 5) return;
@@ -664,6 +671,7 @@ class CompilerVisitor extends Visitor {
         let one = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
         let loop = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
 
+        this.symbol_table.enter_weak_scope(loop);
         let [ count_label, count_start, count_end ] = ctx.children[0].accept(this);
 
         this.assembly += `${loop}_start NOP\n`;
@@ -688,6 +696,7 @@ class CompilerVisitor extends Visitor {
         return;
     }
 
+    // Start rule for a for loop - gets the initial label
     visitFor_start(ctx) {
         if (!ctx) return;
         if (ctx.children.length < 6) return;
@@ -719,6 +728,7 @@ class CompilerVisitor extends Visitor {
     * END endwhile
     */
 
+    // While loops
     visitWhile_start(ctx) {
         // We are interested in the label to the condition
         if (ctx == undefined) return;
@@ -727,15 +737,19 @@ class CompilerVisitor extends Visitor {
         return this.visitChildren(ctx);
     }
 
+    // Main while loop body
     visitWhile(ctx) {
         if (ctx == undefined) return;
         if (ctx.children.length < 4) return;
 
         let loop_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.LOOP_LABEL);
+        
+        // Enter the weak scope of this loop, so break and continue wr=ork correctly
         this.symbol_table.enter_weak_scope(loop_label);
 
         // set a starting label, and do some loopy stuff
-        this.assembly += `${loop_label}_start `;
+
+        this.assembly += `${loop_label}_start NOP\n`;
         let while_condition = ctx.children[0].accept(this);
         this.assembly += `BRZ ${loop_label}_end\n`;
 
@@ -749,6 +763,7 @@ class CompilerVisitor extends Visitor {
         return;
     }
 
+    // Like a while loop but reversed slightly
     visitDo_while(ctx) {
         if (ctx.children.length < 4) return;
         if (ctx == undefined) return;
@@ -776,6 +791,7 @@ class CompilerVisitor extends Visitor {
         return ctx.children[1].accept(this);
     }
 
+    // An if statement. Has many branches, which need to be tracked
     visitIf(ctx) {
         let if_label = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.IF_LABEL);
         let number_of_branches = ctx.children.length / 2 - 1;
@@ -783,7 +799,6 @@ class CompilerVisitor extends Visitor {
         let else_found = false;
 
         let i;
-        //console.log("if", ctx.children);
         for (i = 0; i < number_of_branches; i++) {
             let condition_label = ctx.children[i * 2].accept(this);
             if (condition_label !== 0) {
@@ -827,15 +842,17 @@ class CompilerVisitor extends Visitor {
         return 0;
     }
 
+    // Visit some kind of Terminal symbol
     visitTerminal(ctx) {
         let current_scope = this.symbol_table.weak_scope_labels.at(-1);
-        //console.log("terminal", ctx.symbol.text);
         switch (ctx.symbol.type) {
             case Lexer.BREAK:
+                // Go to the end of the loop
                 this.assembly += `BRA ${current_scope}_end\n`
                 break;
 
             case Lexer.CONTINUE:
+                // go to the start of the loop
                 this.assembly += `BRA ${current_scope}_start\n`;
                 break;
 
@@ -862,9 +879,8 @@ class CompilerVisitor extends Visitor {
         if (!ctx) return;
         if (ctx.children.length < 5) return;
 
-        alert("Custom functions are not supported for this compiler due to generated code readablility issued");
+        alert("Custom functions are not recommended for this compiler due to generated code being basically unreadable. They may also be broken due to lack of testing. Use at own risk");
 
-        /*
 
         let { func_name, params } = ctx.children[1].accept(this);
 
@@ -895,9 +911,9 @@ class CompilerVisitor extends Visitor {
 
         
         this.symbol_table = this.symbol_table.parent;
-        */
     }
 
+    // visit a function defenition -- Depreceated
     visitDef(ctx) {
         if (!ctx) return;
         if (ctx.children.length < 4) return;
@@ -912,6 +928,7 @@ class CompilerVisitor extends Visitor {
         return { func_name, params };
     }
 
+    // Visit a return statement -- depreceated
     visitReturn(ctx) {
         if (!ctx) return;
         if (ctx.children.length < 2) return;
@@ -931,6 +948,7 @@ class CompilerVisitor extends Visitor {
     }
 
 
+    // Call a function
     visitFunc_call(ctx) {
         if (!ctx) return;
         if (ctx.children.length < 3) return;
@@ -940,11 +958,9 @@ class CompilerVisitor extends Visitor {
         let params = [];
 
         for (let i = 2; i < ctx.children.length - 1; i += 2) {
-            //console.log(ctx.children[i]);
             let label = ctx.children[i].accept(this);
             params.push(label);
         }
-        //console.log(params);
 
         let result;
 
@@ -966,7 +982,6 @@ class CompilerVisitor extends Visitor {
                 return result;
 
             case "assert":
-                //console.log(ctx);
                 result = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
                 let one = this.symbol_table.generate_symbol(1, SYMBOL_TYPES.INTEGER_LITERAL);
                 let loop = this.symbol_table.generate_symbol(0, SYMBOL_TYPES.TEMP_CALC);
@@ -981,11 +996,11 @@ class CompilerVisitor extends Visitor {
 
     visitSwtich_case(ctx) {
 
-        throw new Error("Swtich case statements are not supported, please use if else's");
-        return;
+        throw new Error("Swtich case statements are not supported, please use if/else's");
     }
 }
 
+// A way to automate the compilation of a program.
 class Compiler {
     compile(input) {
         this.chars = new antlr4.InputStream(input);
@@ -998,26 +1013,11 @@ class Compiler {
         this.tree.accept(this.visitor);
         this.visitor.assembly += this.visitor.symbol_table.generate_code();
         this.assembly = this.visitor.assembly;
-
-        console.log("chars: ", this.chars);
-        console.log("lexer:", this.lexer);
-        console.log("tokens:", this.tokens);
-        console.log("parser:", this.parser);
-        console.log("tree:",this.tree);
-        console.log("visitor:",this.visitor);
     }
 }
 
-// TODO: PROBLEM - repeated comparisons may break
 
-
-// NOTE: at assert (10 != 10) we hit the memory limit for the machine, time to implement growing memory
-
-// BUG: IF NOT BRANCHING TO THE END AND ALWAYS EXECUTING THE ELSE STATEMENT EVEN WHEN IT SHOULDN'T -- FIXED
-
-// BUG: WHEN DEALING WITH VERY LARGE PROGRAMS, instrucions and memory addresses join together
-// BUG: RETURN OF ABOVE: WITH INSTRUCTIONS REQUIRING
-// BUG: Math was breaking -- fixed by modifying grammar to be recursive on calculations
+// Some tests asserting everything works
 const first_tests = `
 
 assert(true)
@@ -1158,23 +1158,14 @@ print(i)
 `
 
 let code = `
-i = 0
-while i < 10
-    j = i * 3
-    print(j)
-    i = i + 1
-endwhile
+i = 6
+print(i)
 `;
-
-const compiler = new Compiler();
 
 const compiler = new Compiler();
 
 compiler.compile(first_tests);
 let assembly = compiler.assembly;
-console.log(assembly);
-
-console.log(compiler.assembly);
 
 
 export default { CompilerVisitor: Compiler };
