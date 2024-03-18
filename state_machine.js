@@ -158,7 +158,7 @@ class RightPane extends StateMachine {
                 }).bind(this),
 
                 [this.states.ASSEMBLY_VIEW]: (() => {
-                    this.div.innerHTML = `<div id="assembly-view-editor"></div>
+                    this.div.innerHTML = `<p>Assembly Area</p><div id="assembly-view-editor"></div>
             <button id="run-button-right">Run</button>`;
                     document.getElementById("run-button-right").onclick = () => {
                         this.left_pane.transition(this.left_pane.states.LMC_VIEW);
