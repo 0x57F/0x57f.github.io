@@ -26,7 +26,7 @@ class LMC_Visualiser {
                 <h4>Program Controls</h4>
                 <button id="start" onClick="">⏮️</button> <button id="back">◀️</button> <button id="stopstart">⏯️</button> <button id="step">▶️</button> <button id="end">⏭️</button> <br>
             Run speed:<br>
-            <input type="range" min="10" max="1000" value="1000" class="slider" class="timing_slider">
+            <input type="range" min="10" max="1000" value="1000" class="slider" id="timing-slider">
             </div>
         </div>`
 
@@ -48,10 +48,44 @@ class LMC_Visualiser {
     }
 
     init() {
+        this.init_div();
         this.init_memory();
         this.init_buttons();
         this.init_io();
     }
+
+    init_div() {
+        this.parent_div.innerHTML =
+        `<div class="horiz1">
+            <div class="memory">
+            </div>
+            <div class="io">
+                <p class="output"></p>
+                <div class="input">
+                    <input type="text" class="inputbox">
+                    <button type="button" class="inputbutton">Submit</button>
+                </div>
+            </div>
+        </div>
+        <div class="horiz2">
+            <div class="register">
+                <h4>Registers</h4>
+                Program Counter: <label class="pc_label">0000</label> <br>
+                Accumulator: <label class="acc_label">0000</label>
+            </div>
+            <div class="stack">
+                <h4>Stack</h4>
+                <p class="stack_view"></p>
+            </div>
+            <div class="controls">
+                <h4>Program Controls</h4>
+                <button id="start" onClick="">⏮️</button> <button id="back">◀️</button> <button id="stopstart">⏯️</button> <button id="step">▶️</button> <button id="end">⏭️</button> <br>
+            Run speed:<br>
+            <input type="range" min="10" max="1000" value="1000" class="slider" id="timing-slider">
+            </div>
+        </div>`
+    }
+
     // This takes a while, so make it async to allow multiple things to happen at once
     init_memory() {
         let div_element = this.parent_div.getElementsByClassName("memory")[0];
@@ -77,7 +111,6 @@ class LMC_Visualiser {
         }
     }
 
-    last_marker_id = undefined;
     show_memory() {
         var Range = ace.require('ace/range').Range;
         if (this.last_marker_id) {
@@ -132,7 +165,7 @@ class LMC_Visualiser {
     }
 
     read_delay() {
-        return this.parent_div.getElementsByClassName("timing_slider")[0].value;
+        return document.getElementById("timing-slider").value;
     }
 
     async step_back_vm() {

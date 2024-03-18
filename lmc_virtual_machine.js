@@ -138,7 +138,6 @@ class VirtualMachine {
 
     assemble(program_string) {
         let tokens = this.lexical_analysis(program_string);
-        console.log(tokens);
         let instructions, symbol_table;
         [instructions, symbol_table] = this.syntax_analysis(tokens);
         return this.generate_code(instructions, symbol_table);
@@ -442,7 +441,6 @@ class VirtualMachine {
                 break;
 
             default:
-                console.log(this.pc, this.accumulator, this.ram, this.stack);
                 throw new Error(`How on earth did you get here?`);
         }
         return done;
@@ -453,12 +451,14 @@ class VirtualMachine {
      *
      */
     async run() {
-        let done = false;
-
-        while (!done) {
-            // await delay(100);
-            done = await this.step();
+        let count = 0;
+        let max_depth = 10_000_000
+        while (!this.step() || count < max_depth) {
+            count += 1;
+            continue;
         }
+
+        if (count == max_depth) alert("Program ran for too long (does it end?)")
     }
 
 
@@ -477,31 +477,5 @@ class VirtualMachine {
         this.accumulator= snapshot.registers.accumulator;
     }
 }
-
-let vm = new VirtualMachine();
-vm.reset_state();
-vm.input_stack = [123, 123];
-vm.assemble_into_ram(`        INP
-        STA NUM1
-        INP 
-        STA NUM2
-LOOP    LDA TOTAL
-        ADD NUM1
-        STA TOTAL
-        LDA NUM2
-        SUB ONE
-        STA NUM2
-        BRP LOOP
-        LDA TOTAL
-        SUB NUM1
-        STA TOTAL
-        OUT
-        HLT
-NUM1    DAT
-NUM2    DAT
-ONE     DAT 1
-TOTAL   DAT 0`);
-
-console.log(vm.ram);
 
 export default { VirtualMachine };

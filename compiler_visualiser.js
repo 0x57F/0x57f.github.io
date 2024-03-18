@@ -23,7 +23,6 @@ class CompilerVisualiser {
         this.generate_tree(this.ace_editor.getValue());
         let graph = "flowchart TD \n" + this.visitor.program_tree;
         let svg = await this.mermaid.render("viewer", graph);
-        console.log(svg.svg);
         this.parent_div.innerHTML = svg.svg;
     }
 }
