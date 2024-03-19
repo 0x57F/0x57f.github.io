@@ -149,8 +149,16 @@ class RightPane extends StateMachine {
             },
             [this.states.COMPILER_VISUALISE]: {
 
+                [this.states.COMPILER_VISUALISE]: (() => {
+                    this.div.innerHTML = `<p>Syntax Tree View</p>
+                        <div id="mermaid-div"></div>`;
+                    this.compiler_visualiser = new CompilerVisualiser(document.getElementById("mermaid-div"), this.left_pane.pseudocode_editor, mermaid);
+                    this.compiler_visualiser.visualise();
+                    this.state = this.states.COMPILER_VISUALISE;
+                }).bind(this),
+
                 [this.states.ASSEMBLY_VIEW]: (() => {
-                    this.div.innerHTML = `<div id="assembly-view-editor"></div>
+                    this.div.innerHTML = `<p>Assembly Area</p><div id="assembly-view-editor"></div>
             <button id="run-button-right">Run</button>`;
                     document.getElementById("run-button-right").onclick = () => {
                         this.left_pane.transition(this.left_pane.states.LMC_VIEW);
