@@ -71,12 +71,32 @@ class LeftPane extends StateMachine {
                     
                     document.getElementById("return").onclick = () => {
                         this.transition(this.states.PSEUDOCODE_INPUT);
+                        this.vm_visualiser.run_state = false;
                     }
                 }
                 ).bind(this),
 
             },
             [this.states.LMC_VIEW]: {
+
+                [this.states.LMC_VIEW]: (() => {
+                    this.div.innerHTML = `<div id="LMC" style="display:relative"></div><br><button style="position:fixed; z-index:9999" id="return">Return</button>`;
+                    if (!this.VM) {
+                        this.vm = new VirtualMachine.VirtualMachine();
+                    }
+                    this.vm_visualiser = new LMC_Visualiser(document.getElementById("LMC"), this.vm, this.right_pane.assembly_view);
+                    this.vm.assemble_into_ram(this.right_pane.assembly_view.getValue());
+                    this.vm_visualiser.init();
+                    this.vm_visualiser.visualise();
+
+                    this.state = this.states.LMC_VIEW;
+                    
+                    document.getElementById("return").onclick = () => {
+                        this.transition(this.states.PSEUDOCODE_INPUT);
+                        this.vm_visualiser.run_state = false;
+                    }
+                }
+                ).bind(this),
 
                 [this.states.PSEUDOCODE_INPUT]: (() => {
                     this.div.innerHTML = `<p>Pseudocode Area</p>
@@ -92,6 +112,7 @@ class LeftPane extends StateMachine {
                     document.getElementById("assemble-button-left").onclick = () => {
                         this.right_pane.transition(this.right_pane.states.ASSEMBLY_VIEW);
                     }
+                    this.state = this.states.PSEUDOCODE_INPUT;
                 }).bind(this),
 
             }

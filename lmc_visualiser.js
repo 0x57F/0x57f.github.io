@@ -165,7 +165,7 @@ class LMC_Visualiser {
     }
 
     read_delay() {
-        return document.getElementById("timing-slider").value;
+        return document.getElementById("timing-slider")?.value;
     }
 
     async step_back_vm() {

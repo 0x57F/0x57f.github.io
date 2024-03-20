@@ -452,10 +452,11 @@ class VirtualMachine {
      */
     async run() {
         let count = 0;
-        let max_depth = 10_000_000
-        while (!this.step() || count < max_depth) {
+        let max_depth = 100_000;
+        let step = await this.step();
+        while (!step && count < max_depth) {
+            step = await this.step();
             count += 1;
-            continue;
         }
 
         if (count == max_depth) alert("Program ran for too long (does it end?)")

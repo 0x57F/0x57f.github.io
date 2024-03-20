@@ -1,5 +1,10 @@
 const { antlr4, TreeLexer, TreeParser, TreeVisitor } = self.parser.default;
 
+class ExprErrorListener extends antlr4.error.ErrorListener {
+  syntaxError(recognizer, offendingSymbol, line, column, msg, err) {
+    alert(`Syntax Error on line ${line}: ${msg}`);
+  }
+}
 
 class CompilerVisualiser {
     constructor(parent_div, ace_editor, mermaid) {
@@ -9,10 +14,13 @@ class CompilerVisualiser {
     }
 
     generate_tree(input) {
+        input += "\n";
         this.chars = new antlr4.InputStream(input);
         this.lexer = new TreeLexer(this.chars);
         this.tokens = new antlr4.CommonTokenStream(this.lexer);
         this.parser = new TreeParser(this.tokens);
+        this.parser.removeErrorListeners();
+        this.parser.addErrorListener(new ExprErrorListener());
         this.tree = this.parser.program();
 
         this.visitor = new AstVisitor();

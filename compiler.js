@@ -1,5 +1,11 @@
 const { antlr4, Lexer, Parser, Visitor } = self.parser.default;
 
+class ExprErrorListener extends antlr4.error.ErrorListener {
+  syntaxError(recognizer, offendingSymbol, line, column, msg, err) {
+    alert(`Syntax Error on line ${line}: ${msg}`);
+  }
+}
+
 
 const SYMBOL_TYPES = {
     VARIABLE: 0,
@@ -998,15 +1004,19 @@ class CompilerVisitor extends Visitor {
 
         throw new Error("Swtich case statements are not supported, please use if/else's");
     }
+
 }
 
 // A way to automate the compilation of a program.
 class Compiler {
     compile(input) {
+        input += "\n";
         this.chars = new antlr4.InputStream(input);
         this.lexer = new Lexer(this.chars);
         this.tokens = new antlr4.CommonTokenStream(this.lexer);
         this.parser = new Parser(this.tokens);
+        this.parser.removeErrorListeners();
+        this.parser.addErrorListener(new ExprErrorListener());
         this.tree = this.parser.program();
 
         this.visitor = new CompilerVisitor();
@@ -1156,11 +1166,6 @@ print(i)
 i = input()
 print(i)
 `
-
-let code = `
-i = 6
-print(i)
-`;
 
 const compiler = new Compiler();
 
