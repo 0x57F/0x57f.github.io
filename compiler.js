@@ -699,6 +699,8 @@ class CompilerVisitor extends Visitor {
                         `BRA ${loop}_start\n` +
                         `${loop}_end NOP\n`;
 
+        this.symbol_table.leave_weak_scope(loop);
+
         return;
     }
 
